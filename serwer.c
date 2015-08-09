@@ -15,7 +15,7 @@
 
 #include "err.h"
 
-//#define BSIZE       256
+#define BSIZE       256
 
 #define MAX_LINE    16384
 #define MCAST_IP    "224.0.0.251"
@@ -24,24 +24,15 @@
 void read_mcast_data(evutil_socket_t fd, short events, void *arg);
 
 void timer_cb(evutil_socket_t sock, short ev, void *arg) {
-  fprintf(stdout, "Tick\n");  
-//  char buffer[BSIZE];
-//  size_t length;
-//  strncpy(buffer, "Send data\n", BSIZE);
-//  length = strnlen(buffer, BSIZE);
-////  fprintf(stdout, "%d\n", (int)length);  
-////  if (write(sock, buffer, length) != length)
-////    syserr("write");
-//  
-////    (void) printf("sending to socket: %s\n", argv[i]);
-//    int sflags = 0;
-////    int rcva_len = (socklen_t) sizeof(my_address);
-//    int snd_len = sendto(sock, buffer, length, sflags,
-//        //(struct sockaddr *) &my_address, rcva_len);
-//        0, 0);
-//    if (snd_len != (ssize_t) length) {
-//      syserr("partial / failed write");
-//    }
+  fprintf(stderr, "Sending multicast data\n");
+  char buffer[BSIZE];
+  size_t length;
+  strncpy(buffer, "timer_cb data", BSIZE);
+  length = strnlen(buffer, BSIZE);
+  if (write(sock, buffer, length) != length) {
+    syserr("write");
+  }
+  fprintf(stderr, "Data sent\n");
 }
 
 struct event * add_timer_event(struct event_base *base, evutil_socket_t sock) {
@@ -52,34 +43,56 @@ struct event * add_timer_event(struct event_base *base, evutil_socket_t sock) {
   
   struct event *timer_event =
           event_new(base, sock, EV_PERSIST, timer_cb, NULL);
-  if (!timer_event) syserr("Creating timer event.");
-  if (evtimer_add(timer_event, &time)) syserr("Adding timer event to base.");
+  if (!timer_event) {
+    syserr("Creating timer event.");
+  }
+  if (evtimer_add(timer_event, &time)) {
+    syserr("Adding timer event to base.");
+  }
   return timer_event;
 }
 
-struct event * create_read_mcast_socket_and_event(struct event_base *base, evutil_socket_t sock)
-{
-//  evutil_socket_t sock = *fd;
-//  sock = socket(AF_INET, SOCK_DGRAM, 0);
-//  if (sock == -1 ||
-//          evutil_make_listen_socket_reuseable(sock) ||
-//          evutil_make_socket_nonblocking(sock)) {
-//      syserr("Error preparing mcast read socket.");
-//  }
-  
-  int loop = 1;
-  if(setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop)) < 0) {
-    syserr("setsockopt IP_MULTICAST_LOOP");
+evutil_socket_t create_write_mcast_socket(struct event_base *base) {
+  evutil_socket_t sock = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sock == -1 ||
+          evutil_make_listen_socket_reuseable(sock) ||
+          evutil_make_socket_nonblocking(sock)) {
+      syserr("Error preparing mcast write socket.");
   }
   
-  u_char ttl = 255;
-  if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) == -1) {
-    syserr("setsockopt IP_MULTICAST_TTL");
+  int ttl = 255;
+  if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (void*)&ttl, sizeof(ttl)) < 0) {
+    syserr("setsockopt multicast ttl");
+  }
+  int loop = 1;
+  if (setsockopt(sock, SOL_IP, IP_MULTICAST_LOOP, (void*)&loop, sizeof(loop)) < 0) {
+    syserr("setsockopt loop");
+  }
+
+  struct sockaddr_in remote_address;
+  remote_address.sin_family = AF_INET;
+  remote_address.sin_port = htons(MCAST_PORT);
+  if (inet_aton(MCAST_IP, &remote_address.sin_addr) == 0)
+    syserr("inet_aton");
+  if (connect(sock, (struct sockaddr *)&remote_address, sizeof remote_address) < 0) {
+    syserr("connect");
+  }
+  
+  return sock;
+}
+
+struct event * create_read_mcast_socket_and_event(struct event_base *base)
+{
+  evutil_socket_t sock = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sock == -1 ||
+          evutil_make_listen_socket_reuseable(sock) ||
+          evutil_make_socket_nonblocking(sock)) {
+      syserr("Error preparing mcast read socket.");
   }
   
   struct sockaddr_in sin;
   sin.sin_family = AF_INET;
-  sin.sin_addr.s_addr = inet_addr(MCAST_IP); //TODO maybe 0 could be here
+  sin.sin_addr.s_addr = inet_addr(MCAST_IP);
   sin.sin_port = htons(MCAST_PORT);
   if (bind(sock, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
     syserr("bind");
@@ -95,7 +108,7 @@ struct event * create_read_mcast_socket_and_event(struct event_base *base, evuti
   if(setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0) {
     syserr("setsockopt IP_ADD_MEMBERSHIP %s", strerror(errno));
   }
-  
+    
   struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, read_mcast_data, NULL);
   if (!event) {
     syserr("Error creating multicast read event");
@@ -103,6 +116,7 @@ struct event * create_read_mcast_socket_and_event(struct event_base *base, evuti
   if (event_add(event, NULL) == EXIT_FAILURE) {
     syserr("Error adding reading event to a base.");
   }
+
   return event;
 }
 
@@ -128,19 +142,19 @@ int main(int argc, char *argv[]) {
   base = event_base_new();
   if (!base) syserr("Error creating base.");
 
-  evutil_socket_t sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sock == -1 ||
-          evutil_make_listen_socket_reuseable(sock) ||
-          evutil_make_socket_nonblocking(sock)) {
-      syserr("Error preparing mcast read socket.");
-  }
-  assert(sock);
-  struct event *read_mcast_event = create_read_mcast_socket_and_event(base, sock);
-  assert(read_mcast_event);
-//  create_write_mcast_socket(base);
+  struct event * read_mcast_event = create_read_mcast_socket_and_event(base);
   
-  struct event *timer_event = add_timer_event(base, sock);
-  assert(timer_event);
+  evutil_socket_t sock = create_write_mcast_socket(base);
+  assert(sock);
+  
+  struct sockaddr_in sin;
+  socklen_t len = sizeof(sin);
+  if (getsockname(sock, (struct sockaddr *)&sin, &len) == -1) {
+    syserr("getsockname");
+  }
+  fprintf(stderr, "My ip: %s, port number %d.\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+  
+  struct event * timer_event = add_timer_event(base, sock);
 
   printf("Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
