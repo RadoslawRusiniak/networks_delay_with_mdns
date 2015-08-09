@@ -14,6 +14,7 @@
 #include <assert.h>
 
 #include "err.h"
+#include "args.h"
 
 #define BSIZE       256
 
@@ -35,10 +36,10 @@ void timer_cb(evutil_socket_t sock, short ev, void *arg) {
   fprintf(stderr, "Data sent\n");
 }
 
-struct event * add_timer_event(struct event_base *base, evutil_socket_t sock) {
+struct event * add_timer_event(struct event_base *base, evutil_socket_t sock, int queries_interval) {
   
   struct timeval time;
-  time.tv_sec = 2;
+  time.tv_sec = queries_interval;
   time.tv_usec = 0;
   
   struct event *timer_event =
@@ -137,6 +138,9 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg)
 }
 
 int main(int argc, char *argv[]) {
+  parse_arguments(argc, argv);
+  print_arguments();
+  
   struct event_base *base;
 
   base = event_base_new();
@@ -154,7 +158,7 @@ int main(int argc, char *argv[]) {
   }
   fprintf(stderr, "My ip: %s, port number %d.\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
   
-  struct event * timer_event = add_timer_event(base, sock);
+  struct event * timer_event = add_timer_event(base, sock, SEND_QUERIES_INTERVAL);
 
   printf("Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");

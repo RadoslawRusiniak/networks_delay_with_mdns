@@ -4,7 +4,7 @@ TARGETS = serwer
 
 all: $(TARGETS) 
 
-serwer: serwer.o err.o err.h
+serwer: serwer.o err.o err.h args.o args.h
 	$(CC) $(CFLAGS) $^ -o $@ -levent
 
 clean:
