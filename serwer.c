@@ -23,11 +23,6 @@
 
 void read_mcast_data(evutil_socket_t fd, short events, void *arg);
 
-struct read_mcast_state {
-  char buffer[MAX_LINE];
-  struct event * read_mcast_event;
-};
-
 void timer_cb(evutil_socket_t sock, short ev, void *arg) {
   fprintf(stdout, "Tick\n");  
 //  char buffer[BSIZE];
@@ -62,32 +57,7 @@ struct event * add_timer_event(struct event_base *base, evutil_socket_t sock) {
   return timer_event;
 }
 
-struct read_mcast_state * alloc_read_mcast_state(struct event_base *base, evutil_socket_t sock)
-{
-  struct read_mcast_state *state = malloc(sizeof(struct read_mcast_state));
-  if (!state) {
-    syserr("Error allocating memory for multicast read structure");
-  }
-  state->read_mcast_event = event_new(base, sock, EV_READ|EV_PERSIST, read_mcast_data, state);
-  if (!state->read_mcast_event) {
-    free(state);
-    syserr("Error creating multicast read event");
-  }
-  if (event_add(state->read_mcast_event, NULL) == EXIT_FAILURE) {
-    free(state);
-    syserr("Error adding reading event to a base.");
-  }
-  return state;
-}
-
-void free_read_mcast_state(struct read_mcast_state *state)
-{
-  if (event_del(state->read_mcast_event) == -1) syserr("Can't delete the read_mcast_event.");
-  event_free(state->read_mcast_event);
-  free(state);
-}
-
-struct read_mcast_state * create_mcast_socket_and_state(struct event_base *base, evutil_socket_t sock)
+struct event * create_read_mcast_socket_and_event(struct event_base *base, evutil_socket_t sock)
 {
 //  evutil_socket_t sock = *fd;
 //  sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -126,31 +96,29 @@ struct read_mcast_state * create_mcast_socket_and_state(struct event_base *base,
     syserr("setsockopt IP_ADD_MEMBERSHIP %s", strerror(errno));
   }
   
-  
-  struct read_mcast_state *state = alloc_read_mcast_state(base, sock);
-  return state;
+  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, read_mcast_data, NULL);
+  if (!event) {
+    syserr("Error creating multicast read event");
+  }
+  if (event_add(event, NULL) == EXIT_FAILURE) {
+    syserr("Error adding reading event to a base.");
+  }
+  return event;
 }
 
-void read_mcast_data(evutil_socket_t fd, short events, void *arg)
+void read_mcast_data(evutil_socket_t sock, short events, void *arg)
 {
-  struct read_mcast_state *state = arg;
   char buf[1024];
   struct sockaddr_in src_addr;
   socklen_t len;
   ssize_t result;
-  result = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr*)&src_addr, &len);
+  result = recvfrom(sock, buf, sizeof(buf), 0, (struct sockaddr*)&src_addr, &len);
   fprintf(stderr, "recv %zd from %s:%d\n", result, inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port));
-  if (result == 0) {
-    free_read_mcast_state(state);
-  } else if (result < 0) {
-    if (errno == EAGAIN) // XXXX use evutil macro
-    {
-      return;
-    }
-    fprintf(stderr, "Error while receiving data from multicast, freeing reading state...");
-    free_read_mcast_state(state);
-    fprintf(stderr, "Reading state freeing done.");
+  if(result < 0) {
     fatal("Receiving data from multicast.");
+  } else if (result == 0) {
+    fprintf(stderr, "Connection closed.\n");
+    if(close(sock) == -1) syserr("Error closing socket.");
   }
 }
 
@@ -167,16 +135,19 @@ int main(int argc, char *argv[]) {
       syserr("Error preparing mcast read socket.");
   }
   assert(sock);
-  struct read_mcast_state *read_mcast_state = create_mcast_socket_and_state(base, sock);
+  struct event *read_mcast_event = create_read_mcast_socket_and_event(base, sock);
+  assert(read_mcast_event);
+//  create_write_mcast_socket(base);
+  
   struct event *timer_event = add_timer_event(base, sock);
+  assert(timer_event);
 
   printf("Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
   printf("Dispatch loop finished.\n");
 
-  free_read_mcast_state(read_mcast_state);
+  event_free(read_mcast_event);
   event_free(timer_event);
-//  event_free(listener_socket_event);
   event_base_free(base);
 
   return 0;
