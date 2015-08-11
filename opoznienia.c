@@ -20,24 +20,6 @@
 #define MCAST_IP    "224.0.0.251"
 #define MCAST_PORT  5353
 
-struct event * create_write_mcast_event(struct event_base *base, 
-        evutil_socket_t sock, int queries_interval) {
-  
-  struct timeval time;
-  time.tv_sec = queries_interval;
-  time.tv_usec = 0;
-  
-  struct event *timer_event =
-          event_new(base, sock, EV_PERSIST, send_mcast_data, NULL);
-  if (!timer_event) {
-    syserr("Creating timer event.");
-  }
-  if (evtimer_add(timer_event, &time)) {
-    syserr("Adding timer event to base.");
-  }
-  return timer_event;
-}
-
 evutil_socket_t create_write_mcast_socket(struct event_base *base) {
   evutil_socket_t sock = socket(AF_INET, SOCK_DGRAM, 0);
   if (sock == -1 ||
@@ -67,7 +49,25 @@ evutil_socket_t create_write_mcast_socket(struct event_base *base) {
   return sock;
 }
 
-struct event * create_read_mcast_socket_and_event(struct event_base *base)
+struct event * create_write_mcast_event(struct event_base *base, 
+        evutil_socket_t sock, int queries_interval) {
+  
+  struct timeval time;
+  time.tv_sec = queries_interval;
+  time.tv_usec = 0;
+  
+  struct event *timer_event =
+          event_new(base, sock, EV_PERSIST, send_mcast_data, NULL);
+  if (!timer_event) {
+    syserr("Creating timer event.");
+  }
+  if (evtimer_add(timer_event, &time)) {
+    syserr("Adding timer event to base.");
+  }
+  return timer_event;
+}
+
+evutil_socket_t create_read_mcast_socket(struct event_base *base)
 {
   evutil_socket_t sock = socket(AF_INET, SOCK_DGRAM, 0);
   if (sock == -1 ||
@@ -94,6 +94,11 @@ struct event * create_read_mcast_socket_and_event(struct event_base *base)
   if(setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0) {
     syserr("setsockopt IP_ADD_MEMBERSHIP %s", strerror(errno));
   }
+
+  return sock;
+}
+
+struct event * create_read_mcast_event(struct event_base *base, evutil_socket_t sock) {
     
   struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, read_mcast_data, NULL);
   if (!event) {
@@ -106,8 +111,6 @@ struct event * create_read_mcast_socket_and_event(struct event_base *base)
   return event;
 }
 
-
-
 int main(int argc, char *argv[]) {
   parse_arguments(argc, argv);
   print_arguments();
@@ -117,26 +120,27 @@ int main(int argc, char *argv[]) {
   base = event_base_new();
   if (!base) syserr("Error creating base.");
 
-  struct event * read_mcast_event = create_read_mcast_socket_and_event(base);
+  evutil_socket_t read_sock = create_read_mcast_socket(base);
+  assert(read_sock);
+  struct event * read_mcast_event = create_read_mcast_event(base, read_sock);
   
-  evutil_socket_t sock = create_write_mcast_socket(base);
-  assert(sock);
+  evutil_socket_t write_sock = create_write_mcast_socket(base);
+  assert(write_sock);
+  struct event * write_mcast_event = create_write_mcast_event(base, write_sock, SEND_QUERIES_INTERVAL);
   
   struct sockaddr_in sin;
   socklen_t len = sizeof(sin);
-  if (getsockname(sock, (struct sockaddr *)&sin, &len) == -1) {
+  if (getsockname(write_sock, (struct sockaddr *)&sin, &len) == -1) {
     syserr("getsockname");
   }
   fprintf(stderr, "My ip: %s, port number %d.\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
   
-  struct event * timer_event = create_write_mcast_event(base, sock, SEND_QUERIES_INTERVAL);
-
   printf("Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
   printf("Dispatch loop finished.\n");
 
   event_free(read_mcast_event);
-  event_free(timer_event);
+  event_free(write_mcast_event);
   event_base_free(base);
 
   return 0;
