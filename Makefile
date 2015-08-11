@@ -4,7 +4,7 @@ TARGETS = opoznienia
 
 all: $(TARGETS) 
 
-opoznienia: opoznienia.o err.o err.h args.o args.h mdns.o mdns.h
+opoznienia: opoznienia.o err.o err.h args.o args.h mdns.o mdns.h socket_event_manager.o socket_event_manager.h
 	$(CC) $(CFLAGS) $^ -o $@ -levent
 
 clean:

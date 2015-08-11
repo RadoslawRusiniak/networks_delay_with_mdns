@@ -16,6 +16,8 @@ void send_mcast_data(evutil_socket_t sock, short ev, void *arg) {
 void read_mcast_data(evutil_socket_t sock, short events, void *arg)
 {
   char buf[1024];
+  
+//    struct evbuffer *input = bufferevent_get_input(bev);
   struct sockaddr_in src_addr;
   socklen_t len;
   ssize_t result;
