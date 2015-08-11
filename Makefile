@@ -1,10 +1,10 @@
 CC = gcc
 CFLAGS = -Wall
-TARGETS = serwer 
+TARGETS = opoznienia 
 
 all: $(TARGETS) 
 
-serwer: serwer.o err.o err.h args.o args.h
+opoznienia: opoznienia.o err.o err.h args.o args.h mdns.o mdns.h
 	$(CC) $(CFLAGS) $^ -o $@ -levent
 
 clean:

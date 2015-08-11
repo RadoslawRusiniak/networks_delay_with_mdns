@@ -15,35 +15,20 @@
 
 #include "err.h"
 #include "args.h"
+#include "mdns.h"
 
-#define BSIZE       256
-
-#define MAX_LINE    16384
 #define MCAST_IP    "224.0.0.251"
 #define MCAST_PORT  5353
 
-void read_mcast_data(evutil_socket_t fd, short events, void *arg);
-
-void timer_cb(evutil_socket_t sock, short ev, void *arg) {
-  fprintf(stderr, "Sending multicast data\n");
-  char buffer[BSIZE];
-  size_t length;
-  strncpy(buffer, "timer_cb data", BSIZE);
-  length = strnlen(buffer, BSIZE);
-  if (write(sock, buffer, length) != length) {
-    syserr("write");
-  }
-  fprintf(stderr, "Data sent\n");
-}
-
-struct event * add_timer_event(struct event_base *base, evutil_socket_t sock, int queries_interval) {
+struct event * create_write_mcast_event(struct event_base *base, 
+        evutil_socket_t sock, int queries_interval) {
   
   struct timeval time;
   time.tv_sec = queries_interval;
   time.tv_usec = 0;
   
   struct event *timer_event =
-          event_new(base, sock, EV_PERSIST, timer_cb, NULL);
+          event_new(base, sock, EV_PERSIST, send_mcast_data, NULL);
   if (!timer_event) {
     syserr("Creating timer event.");
   }
@@ -121,21 +106,7 @@ struct event * create_read_mcast_socket_and_event(struct event_base *base)
   return event;
 }
 
-void read_mcast_data(evutil_socket_t sock, short events, void *arg)
-{
-  char buf[1024];
-  struct sockaddr_in src_addr;
-  socklen_t len;
-  ssize_t result;
-  result = recvfrom(sock, buf, sizeof(buf), 0, (struct sockaddr*)&src_addr, &len);
-  fprintf(stderr, "recv %zd from %s:%d\n", result, inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port));
-  if(result < 0) {
-    fatal("Receiving data from multicast.");
-  } else if (result == 0) {
-    fprintf(stderr, "Connection closed.\n");
-    if(close(sock) == -1) syserr("Error closing socket.");
-  }
-}
+
 
 int main(int argc, char *argv[]) {
   parse_arguments(argc, argv);
@@ -158,7 +129,7 @@ int main(int argc, char *argv[]) {
   }
   fprintf(stderr, "My ip: %s, port number %d.\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
   
-  struct event * timer_event = add_timer_event(base, sock, SEND_QUERIES_INTERVAL);
+  struct event * timer_event = create_write_mcast_event(base, sock, SEND_QUERIES_INTERVAL);
 
   printf("Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
