@@ -16,13 +16,22 @@ evutil_socket_t create_write_mcast_socket(struct event_base *base) {
   if (setsockopt(sock, SOL_IP, IP_MULTICAST_LOOP, (void*)&loop, sizeof(loop)) < 0) {
     syserr("setsockopt loop");
   }
-
-  struct sockaddr_in remote_address;
-  remote_address.sin_family = AF_INET;
-  remote_address.sin_port = htons(MCAST_PORT);
-  if (inet_aton(MCAST_IP, &remote_address.sin_addr) == 0)
+  
+  struct sockaddr_in local_address;
+  local_address.sin_family = AF_INET;
+  local_address.sin_addr.s_addr = inet_addr(MCAST_IP);
+  local_address.sin_port = htons(MCAST_PORT);
+  if (bind(sock, (struct sockaddr *)&local_address, sizeof local_address) < 0) {
+    syserr("bind");
+  }
+  
+  struct sockaddr_in mcast_address;
+  mcast_address.sin_family = AF_INET;
+  mcast_address.sin_port = htons(MCAST_PORT);
+  if (inet_aton(MCAST_IP, &mcast_address.sin_addr) == 0) {
     syserr("inet_aton");
-  if (connect(sock, (struct sockaddr *)&remote_address, sizeof remote_address) < 0) {
+  }
+  if (connect(sock, (struct sockaddr *)&mcast_address, sizeof mcast_address) < 0) {
     syserr("connect");
   }
   
@@ -56,19 +65,16 @@ evutil_socket_t create_read_mcast_socket(struct event_base *base)
       syserr("Error preparing mcast read socket.");
   }
   
-  struct sockaddr_in sin;
-  sin.sin_family = AF_INET;
-  sin.sin_addr.s_addr = inet_addr(MCAST_IP);
-  sin.sin_port = htons(MCAST_PORT);
-  if (bind(sock, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
+  struct sockaddr_in mcast_address;
+  mcast_address.sin_family = AF_INET;
+  mcast_address.sin_addr.s_addr = inet_addr(MCAST_IP);
+  mcast_address.sin_port = htons(MCAST_PORT);
+  if (bind(sock, (struct sockaddr*)&mcast_address, sizeof(mcast_address)) < 0) {
     syserr("bind");
   }
   
-  struct in_addr mcast_addr;
-  mcast_addr.s_addr = inet_addr(MCAST_IP);
-  
   struct ip_mreqn mreqn;
-  mreqn.imr_multiaddr = mcast_addr;
+  mreqn.imr_multiaddr = mcast_address.sin_addr;
   mreqn.imr_address.s_addr = htonl(INADDR_ANY);
   mreqn.imr_ifindex = 0;
   if(setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0) {

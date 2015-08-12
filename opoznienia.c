@@ -35,13 +35,14 @@ int main(int argc, char *argv[]) {
   base = event_base_new();
   if (!base) syserr("Error creating base.");
 
-  evutil_socket_t read_sock = create_read_mcast_socket(base);
-  assert(read_sock);
-  struct event * read_mcast_event = create_read_mcast_event(base, read_sock);
-
+  
   evutil_socket_t write_sock = create_write_mcast_socket(base);
   assert(write_sock);
   struct event * write_mcast_event = create_write_mcast_event(base, write_sock, SEND_QUERIES_INTERVAL);
+  
+  evutil_socket_t read_sock = create_read_mcast_socket(base);
+  assert(read_sock);
+  struct event * read_mcast_event = create_read_mcast_event(base, read_sock);
   
   print_ip(write_sock);
   
