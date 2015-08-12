@@ -4,16 +4,16 @@
 void append_in_dns_name_format(unsigned char* dns, unsigned char* host)
 {
   //dns name format: 3wwwm5imuw3edu2pl0 
-  int lock = 0 , i;
   strcat((char*)host, ".");
-
-  for (i = 0; i < strlen((char*)host); ++i) {
-    if (host[i]=='.') {
-      *dns++ = i-lock;
-      for( ; lock<i; ++lock) {
-        *dns++ = host[lock];
+  
+  int last_appended = 0 , i, len = strlen((char*)host);
+  for (i = 0; i < len; ++i) {
+    if (host[i] == '.') {
+      *dns++ = i - last_appended;
+      for( ; last_appended < i; ++last_appended) {
+        *dns++ = host[last_appended];
       }
-      ++lock;
+      ++last_appended;
     }
   }
   *dns++='\0';

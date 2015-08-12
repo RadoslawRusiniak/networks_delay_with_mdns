@@ -36,7 +36,6 @@ int main(int argc, char *argv[])
   struct event_base *base;
   base = event_base_new();
   if (!base) syserr("Error creating base.");
-
   
   evutil_socket_t write_sock = create_write_mcast_socket(base);
   assert(write_sock);
