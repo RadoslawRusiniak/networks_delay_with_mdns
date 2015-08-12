@@ -1,6 +1,7 @@
 #include "socket_event_manager.h"
 
-evutil_socket_t create_write_mcast_socket(struct event_base *base) {
+evutil_socket_t create_write_mcast_socket(struct event_base *base)
+{
   evutil_socket_t sock = socket(AF_INET, SOCK_DGRAM, 0);
   if (sock == -1 ||
           evutil_make_listen_socket_reuseable(sock) ||
@@ -56,7 +57,7 @@ struct event * create_write_mcast_event(struct event_base *base,
   return timer_event;
 }
 
-evutil_socket_t create_read_mcast_socket(struct event_base *base)
+evutil_socket_t create_read_mcast_socket(struct event_base *base) 
 {
   evutil_socket_t sock = socket(AF_INET, SOCK_DGRAM, 0);
   if (sock == -1 ||
@@ -84,8 +85,8 @@ evutil_socket_t create_read_mcast_socket(struct event_base *base)
   return sock;
 }
 
-struct event * create_read_mcast_event(struct event_base *base, evutil_socket_t sock) {
-    
+struct event * create_read_mcast_event(struct event_base *base, evutil_socket_t sock)
+{    
   struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, read_mcast_data, NULL);
   if (!event) {
     syserr("Error creating multicast read event");

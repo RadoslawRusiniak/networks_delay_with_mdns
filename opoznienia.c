@@ -18,7 +18,8 @@
 #include "socket_event_manager.h"
 #include "mdns.h"
 
-void print_ip(evutil_socket_t sock) {
+void print_ip(evutil_socket_t sock)
+{
   struct sockaddr_in sin;
   socklen_t len = sizeof(sin);
   if (getsockname(sock, (struct sockaddr *)&sin, &len) == -1) {
@@ -27,7 +28,8 @@ void print_ip(evutil_socket_t sock) {
   fprintf(stderr, "My ip: %s, port number %d.\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   parse_arguments(argc, argv);
   print_arguments();
   

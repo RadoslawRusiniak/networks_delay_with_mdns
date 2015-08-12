@@ -19,12 +19,14 @@ void append_in_dns_name_format(unsigned char* dns, unsigned char* host)
   *dns++='\0';
 }
 
-void prepare_dns_question_header(struct DNS_HEADER *dns) {
+void prepare_dns_question_header(struct DNS_HEADER *dns)
+{
   memset(dns, 0, sizeof(struct DNS_HEADER));
   dns->q_count = htons(1);
 }
 
-void send_mcast_data(evutil_socket_t sock, short events, void *arg) {
+void send_mcast_data(evutil_socket_t sock, short events, void *arg)
+{
   fprintf(stderr, "Sending PTR question via multicast\n");
   char buf[BUFSIZE];
   
