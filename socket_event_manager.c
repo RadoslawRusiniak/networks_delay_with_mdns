@@ -47,7 +47,7 @@ struct event * create_write_mcast_event(struct event_base *base,
   time.tv_usec = 0;
   
   struct event *timer_event =
-          event_new(base, sock, EV_PERSIST, send_mcast_data, NULL);
+          event_new(base, sock, EV_PERSIST, send_PTR_query, NULL);
   if (!timer_event) {
     syserr("Creating timer event.");
   }

@@ -17,48 +17,80 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <inttypes.h>
+
 #include "err.h"
 
-#define BUFSIZE       65536
+#define BUFSIZE 65536
 
-#define T_A 1
+#define T_A   1
 #define T_PTR 12
 
 #define DNS_DISCOVERY_RR   "_services._dns-sd._udp.local"
 
-//DNS header structure
+#define OFFSET_MARK  (3 << 14)
+
+//structures described:
+// http://www.zytrax.com/books/dns/ch15/
+// http://www.binarytides.com/dns-query-code-in-c-with-winsock/
+
+// structures and basics of handling frames done thanks to:
+// http://www.binarytides.com/dns-query-code-in-c-with-linux-sockets/
+
 //fields reversed in groups of 8 bit
 //due to difference in the endian-ness of local machine and network
 struct DNS_HEADER
 {
-  unsigned short id;       // identification number
+  uint16_t id;       // identification number
   
-  unsigned char rd :1;     // recursion desired
-  unsigned char tc :1;     // truncated message
-  unsigned char aa :1;     // authoritive answer
-  unsigned char opcode :4; // purpose of message
-  unsigned char qr :1;     // query/response flag
+  uint8_t rd :1;     // recursion desired
+  uint8_t tc :1;     // truncated message
+  uint8_t aa :1;     // authoritive answer
+  uint8_t opcode :4; // purpose of message
+  uint8_t qr :1;     // query/response flag
   
-  unsigned char rcode :4;  // response code
-  unsigned char z :3;      // its z! reserved
-  unsigned char ra :1;     // recursion available
+  uint8_t rcode :4;  // response code
+  uint8_t z :3;      // reserved for future use
+  uint8_t ra :1;     // recursion available
   
-  unsigned short q_count;  // number of question entries
-  unsigned short ans_count; // number of answer entries
-  unsigned short auth_count; // number of authority entries
-  unsigned short add_count; // number of resource entries
+  uint16_t q_count;     // number of question entries
+  uint16_t ans_count;   // number of answer entries
+  uint16_t auth_count;  // number of authority entries
+  uint16_t add_count;   // number of resource entries
 };
 
-//Constant sized fields of query structure
 struct QUESTION
 {
-  unsigned short qtype;
-  unsigned short qclass;
+  uint16_t qtype;
+  uint16_t qclass;
 };
 
-void send_mcast_data(evutil_socket_t sock, short events, void *arg);
+#pragma pack(push, 1)
+struct R_DATA
+{
+  uint16_t rtype;
+  uint16_t rclass;
+  uint32_t ttl;
+  uint16_t data_len;
+};
+#pragma pack(pop)
+ 
+struct RES_RECORD
+{
+  unsigned char * name;
+  struct R_DATA * resource;
+  unsigned char * rdata;
+};
 
-void read_mcast_data(evutil_socket_t sock, short events, void *arg);
+struct QUERY
+{
+  unsigned char * name;
+  struct QUESTION * ques;
+};
+
+void send_PTR_query(evutil_socket_t sock, short events, void * arg);
+
+void read_mcast_data(evutil_socket_t sock, short events, void * arg);
 
 #endif	/* MDNS_H */
 
