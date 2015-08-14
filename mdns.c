@@ -18,7 +18,7 @@ void append_in_dns_name_format(char * dns, char * host) {
   *dns++ = '\0';
 }
 
-u_char * read_name_from_packet(unsigned char * read_pointer, unsigned char * buffer, int * count) {
+unsigned char * read_name_from_packet(unsigned char * read_pointer, unsigned char * buffer, int * count) {
   unsigned char * name;
   unsigned int p = 0, jumped = 0, offset;
   int i;
@@ -71,21 +71,21 @@ void prepare_dns_question_header(struct DNS_HEADER *dns) {
 
 void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "Sending PTR question via multicast\n");
-  char buf[BUFSIZE];
+  char buf[BUF_SIZE];
 
   struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
   prepare_dns_question_header(dns);
 
   char * qname = &buf[sizeof (struct DNS_HEADER)];
-  char service[64] = DNS_DISCOVERY_RR;
+  char service[64] = MDNS_SERVICE;
   append_in_dns_name_format(qname, service);
 
   struct QUESTION *qinfo = (struct QUESTION *)
-          &buf[sizeof (struct DNS_HEADER) + (sizeof (DNS_DISCOVERY_RR) + 1)];
+          &buf[sizeof (struct DNS_HEADER) + (sizeof (MDNS_SERVICE) + 1)];
   qinfo->qtype = htons(T_PTR); //type of the query
   qinfo->qclass = htons(1); //its internet
 
-  size_t length = sizeof(struct DNS_HEADER) + (sizeof(DNS_DISCOVERY_RR) + 1) + sizeof(struct QUESTION);
+  size_t length = sizeof(struct DNS_HEADER) + (sizeof(MDNS_SERVICE) + 1) + sizeof(struct QUESTION);
   if (write(sock, buf, length) != length) {
     syserr("write");
   }
@@ -93,7 +93,7 @@ void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
 }
 
 void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
-  unsigned char buf[BUFSIZE];
+  unsigned char buf[BUF_SIZE];
   struct sockaddr_in src_addr;
   socklen_t len;
   ssize_t result;
@@ -122,8 +122,8 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
   for (i = 0; i < ntohs(dns->q_count); i++) {
     fprintf(stderr, "Question nr %d analyzed:\n", i + 1);
     questions[i].name = read_name_from_packet(read_pointer, buf, &consumed);
-    fprintf(stderr, "\tName: %s\n", answers[i].name);
     read_pointer += consumed;
+    fprintf(stderr, "\tName: %s\n", questions[i].name);
     
     questions[i].ques = (struct QUESTION *) (read_pointer);
     if (ntohs(questions[i].ques->qtype) == T_PTR) {

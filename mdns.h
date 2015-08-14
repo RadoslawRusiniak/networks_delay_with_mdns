@@ -21,12 +21,12 @@
 
 #include "err.h"
 
-#define BUFSIZE 65536
+#define BUF_SIZE 65536
 
 #define T_A   1
 #define T_PTR 12
 
-#define DNS_DISCOVERY_RR   "_services._dns-sd._udp.local"
+#define MDNS_SERVICE   "_opoznienia._dns-sd._udp.local"
 
 #define OFFSET_MARK  (3 << 14)
 
