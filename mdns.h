@@ -1,10 +1,3 @@
-/* 
- * File:   mdns.h
- * Author: radek8
- *
- * Created on 11 sierpień 2015, 21:17
- */
-
 #ifndef MDNS_H
 #define	MDNS_H
 

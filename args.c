@@ -1,4 +1,3 @@
-
 #include "args.h"
 
 int SEND_QUERIES_INTERVAL = 10;

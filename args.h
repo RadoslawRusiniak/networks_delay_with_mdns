@@ -1,10 +1,3 @@
-/* 
- * File:   args.h
- * Author: radek8
- *
- * Created on 9 sierpień 2015, 20:11
- */
-
 #ifndef ARGS_H
 #define	ARGS_H
 

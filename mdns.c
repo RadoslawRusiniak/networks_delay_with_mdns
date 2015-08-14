@@ -1,73 +1,10 @@
-
 #include "mdns.h"
 
-void append_in_dns_name_format(char * dns, char * host) {
-  //dns name format: 3wwwm5imuw3edu2pl0 
-  strcat(host, ".");
+void append_in_dns_name_format(char * dns, char * host);
 
-  int last_appended = 0, i, len = strlen(host);
-  for (i = 0; i < len; ++i) {
-    if (host[i] == '.') {
-      *dns++ = i - last_appended;
-      for (; last_appended < i; ++last_appended) {
-        *dns++ = host[last_appended];
-      }
-      ++last_appended;
-    }
-  }
-  *dns++ = '\0';
-}
+unsigned char * read_name_from_packet(unsigned char * read_pointer, unsigned char * buffer, int * count);
 
-unsigned char * read_name_from_packet(unsigned char * read_pointer, unsigned char * buffer, int * count) {
-  unsigned char * name;
-  unsigned int p = 0, jumped = 0, offset;
-  int i;
-
-  *count = 1;
-  name = (unsigned char * ) malloc(256);
-  name[0] = '\0';
-  
-  //read the names in 3www6google3com format
-  while (*read_pointer != 0) {
-    if (*read_pointer >= 192) { //offset type name
-      offset = (*read_pointer)*256 + *(read_pointer + 1) - OFFSET_MARK;
-      read_pointer = buffer + offset - 1;
-      jumped = 1;
-    } else {
-      name[p++] = *read_pointer;
-    }
-
-    read_pointer = read_pointer + 1;
-
-    if (jumped == 0) {
-      *count = *count + 1;
-    }
-  }
-
-  name[p] = '\0'; //string complete
-  if (jumped == 1) {
-    *count = *count + 1;
-  }
-
-  //convert 3www6google3com0 to www.google.com
-  int j;
-  for (i = 0; i < (int) strlen((const char*) name); ++i) {
-    p = name[i];
-    for (j = 0; j < (int) p; ++j) {
-      name[i] = name[i + 1];
-      i = i + 1;
-    }
-    name[i] = '.';
-  }
-  name[i - 1] = '\0'; //remove the last dot
-//  fprintf(stderr, "name from help function: %s\n", name);
-  return name;
-}
-
-void prepare_dns_question_header(struct DNS_HEADER *dns) {
-  memset(dns, 0, sizeof (struct DNS_HEADER));
-  dns->q_count = htons(1);
-}
+void prepare_dns_question_header(struct DNS_HEADER *dns);
 
 void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "Sending PTR question via multicast\n");
@@ -174,5 +111,71 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
       return;
     }
   }
+}
 
+void append_in_dns_name_format(char * dns, char * host) {
+  //dns name format: 3wwwm5imuw3edu2pl0 
+  strcat(host, ".");
+
+  int last_appended = 0, i, len = strlen(host);
+  for (i = 0; i < len; ++i) {
+    if (host[i] == '.') {
+      *dns++ = i - last_appended;
+      for (; last_appended < i; ++last_appended) {
+        *dns++ = host[last_appended];
+      }
+      ++last_appended;
+    }
+  }
+  *dns++ = '\0';
+}
+
+unsigned char * read_name_from_packet(unsigned char * read_pointer, unsigned char * buffer, int * count) {
+  unsigned char * name;
+  unsigned int p = 0, jumped = 0, offset;
+  int i;
+
+  *count = 1;
+  name = (unsigned char * ) malloc(256);
+  name[0] = '\0';
+  
+  //read the names in 3www6google3com format
+  while (*read_pointer != 0) {
+    if (*read_pointer >= 192) { //offset type name
+      offset = (*read_pointer)*256 + *(read_pointer + 1) - OFFSET_MARK;
+      read_pointer = buffer + offset - 1;
+      jumped = 1;
+    } else {
+      name[p++] = *read_pointer;
+    }
+
+    read_pointer = read_pointer + 1;
+
+    if (jumped == 0) {
+      *count = *count + 1;
+    }
+  }
+
+  name[p] = '\0'; //string complete
+  if (jumped == 1) {
+    *count = *count + 1;
+  }
+
+  //convert 3www6google3com0 to www.google.com
+  int j;
+  for (i = 0; i < (int) strlen((const char*) name); ++i) {
+    p = name[i];
+    for (j = 0; j < (int) p; ++j) {
+      name[i] = name[i + 1];
+      i = i + 1;
+    }
+    name[i] = '.';
+  }
+  name[i - 1] = '\0'; //remove the last dot
+  return name;
+}
+
+void prepare_dns_question_header(struct DNS_HEADER *dns) {
+  memset(dns, 0, sizeof (struct DNS_HEADER));
+  dns->q_count = htons(1);
 }

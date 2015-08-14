@@ -1,10 +1,3 @@
-/* 
- * File:   socket_event_manager.h
- * Author: radek8
- *
- * Created on 11 sierpień 2015, 23:53
- */
-
 #ifndef SOCKET_EVENT_MANAGER_H
 #define	SOCKET_EVENT_MANAGER_H
 
