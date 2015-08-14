@@ -17,16 +17,7 @@
 #include "args.h"
 #include "socket_event_manager.h"
 #include "mdns.h"
-
-void print_ip(evutil_socket_t sock)
-{
-  struct sockaddr_in sin;
-  socklen_t len = sizeof(sin);
-  if (getsockname(sock, (struct sockaddr *)&sin, &len) == -1) {
-    syserr("getsockname");
-  }
-  fprintf(stderr, "My ip: %s, port number %d.\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
-}
+#include "util.h"
 
 int main(int argc, char *argv[])
 {
@@ -45,11 +36,16 @@ int main(int argc, char *argv[])
   assert(read_sock);
   struct event * read_mcast_event = create_read_mcast_event(base, read_sock);
   
-  print_ip(write_sock);
+  fprintf(stderr, "Instance data:\n");
+  struct sockaddr_in sin = get_ip(write_sock);
+  fprintf(stderr, "\tMy ip: %s, port number %d.\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+  char * hostname = get_hostname();
+  fprintf(stderr, "\tMy hostname: %s .\n", hostname);
+  free(hostname);
   
-  printf("Entering dispatch loop.\n");
+  fprintf(stderr, "Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
-  printf("Dispatch loop finished.\n");
+  fprintf(stderr, "Dispatch loop finished.\n");
 
   event_free(read_mcast_event);
   event_free(write_mcast_event);
