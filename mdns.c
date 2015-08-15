@@ -2,16 +2,15 @@
 
 void append_in_dns_name_format(char * dns, char * host);
 
-unsigned char * read_name_from_packet(unsigned char * read_pointer, unsigned char * buffer, int * count);
-
-void prepare_dns_question_header(struct DNS_HEADER *dns);
+char * read_name_from_packet(char * read_pointer, char * buffer, int * count);
 
 void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
-  fprintf(stderr, "Sending PTR question via multicast\n");
+  fprintf(stderr, "Sending PTR question via multicast.\n");
   char buf[BUF_SIZE];
 
   struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
-  prepare_dns_question_header(dns);
+  memset(dns, 0, sizeof (struct DNS_HEADER));
+  dns->q_count = htons(1);
 
   char * qname = &buf[sizeof (struct DNS_HEADER)];
   char service[64] = MDNS_SERVICE;
@@ -26,11 +25,48 @@ void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
   if (write(sock, buf, length) != length) {
     syserr("write");
   }
-  fprintf(stderr, "PTR question via multicast sent\n");
+  fprintf(stderr, "PTR question sent via multicast.\n");
+}
+
+void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
+  fprintf(stderr, "Sending PTR answer via multicast.\n");
+  char buf[BUF_SIZE];
+  
+  struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
+  memset(dns, 0, sizeof (struct DNS_HEADER));
+  dns->ans_count = htons(1);
+  
+  ssize_t frame_len = sizeof (struct DNS_HEADER);
+  struct RES_RECORD *answer = (struct RES_RECORD *) &buf[frame_len];
+  answer->name = &buf[frame_len];
+  
+  char hostname[256]; char * host_pointer = hostname;
+  get_hostname(host_pointer);
+  fprintf(stderr, "\thostname: %s\n", host_pointer);
+//  char service_suf[64] = MDNS_SERVICE_SUFFIX;
+  strcat(host_pointer, MDNS_SERVICE_SUFFIX);
+//  hostname[strlen(host_pointer)] = '\0';
+  fprintf(stderr, "\thostname with suffix: %s\n", host_pointer);
+  append_in_dns_name_format(answer->name, host_pointer);
+  
+  frame_len += strlen(host_pointer) + 1;
+  
+  answer->resource = (struct R_DATA *) &buf[frame_len];
+  answer->resource->rtype = htons(T_PTR);
+  answer->resource->rclass = htons(1);
+  answer->resource->ttl = htons(255);
+  answer->resource->data_len = 0;
+  
+  frame_len += sizeof (struct R_DATA);
+  
+  if (write(sock, buf, frame_len) != frame_len) {
+    syserr("write");
+  }
+  fprintf(stderr, "PTR answer via multicast sent\n");
 }
 
 void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
-  unsigned char buf[BUF_SIZE];
+  char buf[BUF_SIZE];
   struct sockaddr_in src_addr;
   socklen_t len;
   ssize_t result;
@@ -50,11 +86,12 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "\n %d Questions.", ntohs(dns->q_count));
   fprintf(stderr, "\n %d Answers.\n", ntohs(dns->ans_count));
   
-  unsigned char * read_pointer = (unsigned char *) &buf[sizeof(struct DNS_HEADER)];
+  char * read_pointer = &buf[sizeof(struct DNS_HEADER)];
 
   int i, j, consumed = 0;
   struct QUERY questions[10];
-  struct RES_RECORD answers[10];
+  struct RES_RECORD answers[10];      
+  struct event_base *base = (struct event_base *)arg;
   
   for (i = 0; i < ntohs(dns->q_count); i++) {
     fprintf(stderr, "Question nr %d analyzed:\n", i + 1);
@@ -65,7 +102,10 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
     questions[i].ques = (struct QUESTION *) (read_pointer);
     if (ntohs(questions[i].ques->qtype) == T_PTR) {
       fprintf(stderr, "\tT_PTR question.\n");
-      
+      struct event *an_event =
+        event_new(base, write_MDNS_sock, EV_WRITE, send_PTR_answer, NULL);
+      if(!an_event) syserr("Error creating event.");
+      if(event_add(an_event, NULL) == -1) syserr("Error adding an event to a base.");
     } else if (ntohs(questions[i].ques->qtype) == T_A) {
       fprintf(stderr, "\tT_A question.\n");
       
@@ -118,11 +158,14 @@ void append_in_dns_name_format(char * dns, char * host) {
   strcat(host, ".");
 
   int last_appended = 0, i, len = strlen(host);
+  fprintf(stderr, "append, len: %d host: %s\n", len, host);
   for (i = 0; i < len; ++i) {
     if (host[i] == '.') {
+      fprintf(stderr, "dot %d\n", i - last_appended);
       *dns++ = i - last_appended;
       for (; last_appended < i; ++last_appended) {
         *dns++ = host[last_appended];
+        fprintf(stderr, "%c", *(--dns)); dns++;
       }
       ++last_appended;
     }
@@ -130,39 +173,24 @@ void append_in_dns_name_format(char * dns, char * host) {
   *dns++ = '\0';
 }
 
-unsigned char * read_name_from_packet(unsigned char * read_pointer, unsigned char * buffer, int * count) {
-  unsigned char * name;
-  unsigned int p = 0, jumped = 0, offset;
-  int i;
-
+char * read_name_from_packet(char * read_pointer, char * buffer, int * count) {
+  char * name;
+  int p = 0;
   *count = 1;
-  name = (unsigned char * ) malloc(256);
+  name = (char *) malloc(256);
   name[0] = '\0';
   
-  //read the names in 3www6google3com format
+  //read names in 3www5mimuw3edu2pl0 format
   while (*read_pointer != 0) {
-    if (*read_pointer >= 192) { //offset type name
-      offset = (*read_pointer)*256 + *(read_pointer + 1) - OFFSET_MARK;
-      read_pointer = buffer + offset - 1;
-      jumped = 1;
-    } else {
-      name[p++] = *read_pointer;
-    }
-
+    name[p++] = *read_pointer;
     read_pointer = read_pointer + 1;
-
-    if (jumped == 0) {
-      *count = *count + 1;
-    }
-  }
-
-  name[p] = '\0'; //string complete
-  if (jumped == 1) {
     *count = *count + 1;
   }
 
-  //convert 3www6google3com0 to www.google.com
-  int j;
+  name[p] = '\0';
+
+  //convert 3www5mimuw3edu2pl0 to www.mimuw.edu.pl
+  int i, j;
   for (i = 0; i < (int) strlen((const char*) name); ++i) {
     p = name[i];
     for (j = 0; j < (int) p; ++j) {
@@ -173,9 +201,4 @@ unsigned char * read_name_from_packet(unsigned char * read_pointer, unsigned cha
   }
   name[i - 1] = '\0'; //remove the last dot
   return name;
-}
-
-void prepare_dns_question_header(struct DNS_HEADER *dns) {
-  memset(dns, 0, sizeof (struct DNS_HEADER));
-  dns->q_count = htons(1);
 }

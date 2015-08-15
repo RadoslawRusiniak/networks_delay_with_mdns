@@ -17,7 +17,7 @@
 
 struct sockaddr_in get_ip(evutil_socket_t sock);
 
-char * get_hostname();
+void get_hostname(char * ret_name);
 
 #endif	/* UTIL_H */
 

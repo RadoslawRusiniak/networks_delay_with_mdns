@@ -13,15 +13,18 @@
 #include <inttypes.h>
 
 #include "err.h"
+#include "socket_event_manager.h"
+#include "util.h"
 
 #define BUF_SIZE 65536
 
 #define T_A   1
 #define T_PTR 12
 
-#define MDNS_SERVICE   "_opoznienia._dns-sd._udp.local"
+#define MDNS_SERVICE          "_opoznienia._dns-sd._udp.local"
+#define MDNS_SERVICE_SUFFIX   "._dns-sd._udp.local"
 
-#define OFFSET_MARK  (3 << 14)
+//#define OFFSET_MARK  (3 << 14)
 
 //structures described:
 // http://www.zytrax.com/books/dns/ch15/
@@ -70,14 +73,14 @@ struct R_DATA
  
 struct RES_RECORD
 {
-  unsigned char * name;
+  char * name;
   struct R_DATA * resource;
-  unsigned char * rdata;
+  char * rdata;
 };
 
 struct QUERY
 {
-  unsigned char * name;
+  char * name;
   struct QUESTION * ques;
 };
 

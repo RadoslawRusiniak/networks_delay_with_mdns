@@ -9,7 +9,7 @@ struct sockaddr_in get_ip(evutil_socket_t sock) {
   return sin;
 }
 
-char * get_hostname() {
+void get_hostname(char * ret_name) {
   struct addrinfo hints, *info, *p;
   int gai_result;
 
@@ -27,11 +27,9 @@ char * get_hostname() {
       exit(1);
   }
 
-  char *ret_name = malloc(256);
-  for (p = info; p != NULL; p = p->ai_next) {
-    memcpy(ret_name, p->ai_canonname, strlen(p->ai_canonname));
+  if (info != NULL) {
+    memcpy(ret_name, info->ai_canonname, strlen(info->ai_canonname));
   }
+  ret_name[strlen(info->ai_canonname)] = '\0';
   freeaddrinfo(info);
-  
-  return ret_name;
 }

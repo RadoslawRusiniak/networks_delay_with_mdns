@@ -87,7 +87,7 @@ evutil_socket_t create_read_mcast_socket(struct event_base *base)
 
 struct event * create_read_mcast_event(struct event_base *base, evutil_socket_t sock)
 {    
-  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, read_mcast_data, NULL);
+  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, read_mcast_data, (void *)base);
   if (!event) {
     syserr("Error creating multicast read event");
   }

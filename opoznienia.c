@@ -28,20 +28,20 @@ int main(int argc, char *argv[])
   base = event_base_new();
   if (!base) syserr("Error creating base.");
   
-  evutil_socket_t write_sock = create_write_mcast_socket(base);
-  assert(write_sock);
-  struct event * write_mcast_event = create_write_mcast_event(base, write_sock, SEND_QUERIES_INTERVAL);
+  write_MDNS_sock = create_write_mcast_socket(base);
+  assert(write_MDNS_sock);
+  struct event * write_mcast_event = create_write_mcast_event(base, write_MDNS_sock, SEND_QUERIES_INTERVAL);
   
-  evutil_socket_t read_sock = create_read_mcast_socket(base);
-  assert(read_sock);
-  struct event * read_mcast_event = create_read_mcast_event(base, read_sock);
+  read_MDNS_sock = create_read_mcast_socket(base);
+  assert(read_MDNS_sock);
+  struct event * read_mcast_event = create_read_mcast_event(base, read_MDNS_sock);
   
   fprintf(stderr, "Instance data:\n");
-  struct sockaddr_in sin = get_ip(write_sock);
-  fprintf(stderr, "\tMy ip: %s, port number %d.\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
-  char * hostname = get_hostname();
-  fprintf(stderr, "\tMy hostname: %s .\n", hostname);
-  free(hostname);
+  struct sockaddr_in sin = get_ip(write_MDNS_sock);
+  fprintf(stderr, "\tMy ip: %s, port number %d\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+  char hostname[256]; char * host_pointer = hostname;
+  get_hostname(host_pointer);
+  fprintf(stderr, "\tMy hostname: %s\n", host_pointer);
   
   fprintf(stderr, "Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
