@@ -88,7 +88,7 @@ void handle_PTR_answer(char * read_pointer, struct RES_RECORD * answer) {
   int consumed = 0;
 //  answer->rdata = malloc(ntohs(answer->resource->data_len));
   answer->rdata = read_name_from_packet(read_pointer, &consumed);
-  read_pointer = read_pointer + answer->resource->data_len;
+  read_pointer = read_pointer + ntohs(answer->resource->data_len);
   fprintf(stderr, "\tRdata name: %s.\n", answer->rdata);
 }
 
