@@ -7,15 +7,14 @@ void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
   struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
   memset(dns, 0, sizeof (struct DNS_HEADER));
   dns->q_count = htons(1);
-
+  
   ssize_t frame_len = sizeof (struct DNS_HEADER);
   char * qname = &buf[frame_len];
   char service[64] = MDNS_SERVICE;
   append_in_dns_name_format(qname, service);
 
   frame_len += (sizeof (MDNS_SERVICE) + 1);
-  struct QUESTION *qinfo = (struct QUESTION *)
-          &buf[frame_len];
+  struct QUESTION *qinfo = (struct QUESTION *) &buf[frame_len];
   qinfo->qtype = htons(T_PTR); //type of the query
   qinfo->qclass = htons(1); //its internet
 
@@ -32,6 +31,8 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
 
   struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
   memset(dns, 0, sizeof (struct DNS_HEADER));
+  dns->qr = 1;
+  dns->aa = 1;
   dns->ans_count = htons(1);
 
   ssize_t frame_len = sizeof (struct DNS_HEADER);
@@ -62,7 +63,7 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   append_in_dns_name_format(answer->rdata, host_pointer);
   
   answer->resource->data_len = htons(strlen(host_pointer) + 1);
-  frame_len += answer->resource->data_len;
+  frame_len += htons(answer->resource->data_len);
   if (write(sock, buf, frame_len) != frame_len) {
     syserr("write");
   }
@@ -85,6 +86,7 @@ void handle_A_question(struct QUERY * question) {
 void handle_PTR_answer(char * read_pointer, struct RES_RECORD * answer) {
   fprintf(stderr, "\tT_PTR answer.\n");
   int consumed = 0;
+//  answer->rdata = malloc(ntohs(answer->resource->data_len));
   answer->rdata = read_name_from_packet(read_pointer, &consumed);
   read_pointer = read_pointer + answer->resource->data_len;
   fprintf(stderr, "\tRdata name: %s.\n", answer->rdata);
@@ -94,7 +96,7 @@ void handle_A_answer(char * read_pointer, struct RES_RECORD * answer) {
   fprintf(stderr, "\tT_A answer.\n");
   int j;
   answer->rdata = malloc(ntohs(answer->resource->data_len));
-  for (j = 0; j < ntohs(answer->resource->data_len); j++) {
+  for (j = 0; j < ntohs(answer->resource->data_len); ++j) {
     answer->rdata[j] = read_pointer[j];
   }
   answer->rdata[ntohs(answer->resource->data_len)] = '\0';
@@ -104,7 +106,7 @@ void handle_A_answer(char * read_pointer, struct RES_RECORD * answer) {
 void handle_questions(uint16_t nr_of_questions, char * read_pointer, struct event_base *base) {
   struct QUERY questions[10];
   int i, consumed;
-  for (i = 0; i < nr_of_questions; i++) {
+  for (i = 0; i < nr_of_questions; ++i) {
     fprintf(stderr, " Question nr %d analyzed:\n", i + 1);
     consumed = 0;
     questions[i].name = read_name_from_packet(read_pointer, &consumed);
@@ -129,7 +131,7 @@ void handle_questions(uint16_t nr_of_questions, char * read_pointer, struct even
 void handle_answers(uint16_t nr_of_answers, char * read_pointer, struct event_base *base) {
   struct RES_RECORD answers[10];
   int i, consumed;
-  for (i = 0; i < nr_of_answers; i++) {
+  for (i = 0; i < nr_of_answers; ++i) {
     fprintf(stderr, " Answer nr %d analyzed:\n", i + 1);
     consumed = 0;
     answers[i].name = read_name_from_packet(read_pointer, &consumed);
@@ -170,7 +172,7 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
   }
 
   struct DNS_HEADER * dns = (struct DNS_HEADER *) &buf;
-  fprintf(stderr, "The response contains : ");
+  fprintf(stderr, "The response contains: ");
   fprintf(stderr, "\n %d Questions.", ntohs(dns->q_count));
   fprintf(stderr, "\n %d Answers.\n", ntohs(dns->ans_count));
 
