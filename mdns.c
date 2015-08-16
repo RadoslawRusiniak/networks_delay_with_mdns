@@ -70,6 +70,7 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
 }
 
 void handle_PTR_question(struct event_base *base) {
+  fprintf(stderr, "\tT_PTR question.\n");
   struct event *an_event =
           event_new(base, write_MDNS_sock, EV_WRITE, send_PTR_answer, NULL);
   if (!an_event) syserr("Error creating event.");
@@ -77,35 +78,44 @@ void handle_PTR_question(struct event_base *base) {
 }
 
 void handle_A_question(struct QUERY * question) {
+  fprintf(stderr, "\tT_A question.\n");
 
 }
 
-void handle_PTR_answer(struct RES_RECORD * answer) {
-
+void handle_PTR_answer(char * read_pointer, struct RES_RECORD * answer) {
+  fprintf(stderr, "\tT_PTR answer.\n");
+  int consumed = 0;
+  answer->rdata = read_name_from_packet(read_pointer, &consumed);
+  read_pointer = read_pointer + answer->resource->data_len;
+  fprintf(stderr, "\tRdata name: %s.\n", answer->rdata);
 }
 
-void handle_A_answer(struct RES_RECORD * answer) {
-
+void handle_A_answer(char * read_pointer, struct RES_RECORD * answer) {
+  fprintf(stderr, "\tT_A answer.\n");
+  int j;
+  answer->rdata = malloc(ntohs(answer->resource->data_len));
+  for (j = 0; j < ntohs(answer->resource->data_len); j++) {
+    answer->rdata[j] = read_pointer[j];
+  }
+  answer->rdata[ntohs(answer->resource->data_len)] = '\0';
+  read_pointer = read_pointer + ntohs(answer->resource->data_len);
 }
 
-void handle_questions(struct DNS_HEADER * dns, char * read_pointer, char * buf, 
-        struct event_base *base) {
-  
+void handle_questions(uint16_t nr_of_questions, char * read_pointer, struct event_base *base) {
   struct QUERY questions[10];
-  int i, consumed = 0;
-  for (i = 0; i < ntohs(dns->q_count); i++) {
+  int i, consumed;
+  for (i = 0; i < nr_of_questions; i++) {
     fprintf(stderr, " Question nr %d analyzed:\n", i + 1);
+    consumed = 0;
     questions[i].name = read_name_from_packet(read_pointer, &consumed);
     read_pointer += consumed;
+    
     fprintf(stderr, "\tName: %s\n", questions[i].name);
-
     questions[i].ques = (struct QUESTION *) (read_pointer);
     if (ntohs(questions[i].ques->qtype) == T_PTR) {
-      fprintf(stderr, "\tT_PTR question.\n");
       handle_PTR_question(base);
     }
     else if (ntohs(questions[i].ques->qtype) == T_A) {
-      fprintf(stderr, "\tT_A question.\n");
       handle_A_question(&questions[i]);
     }
     else {
@@ -116,13 +126,12 @@ void handle_questions(struct DNS_HEADER * dns, char * read_pointer, char * buf,
   }
 }
 
-void handle_answers(struct DNS_HEADER * dns, char * read_pointer, char * buf, 
-        struct event_base *base) {
-  
+void handle_answers(uint16_t nr_of_answers, char * read_pointer, struct event_base *base) {
   struct RES_RECORD answers[10];
-  int i, j, consumed = 0;
-  for (i = 0; i < ntohs(dns->ans_count); i++) {
+  int i, consumed;
+  for (i = 0; i < nr_of_answers; i++) {
     fprintf(stderr, " Answer nr %d analyzed:\n", i + 1);
+    consumed = 0;
     answers[i].name = read_name_from_packet(read_pointer, &consumed);
     read_pointer += consumed;
     fprintf(stderr, "\tName: %s\n", answers[i].name);
@@ -131,21 +140,10 @@ void handle_answers(struct DNS_HEADER * dns, char * read_pointer, char * buf,
     read_pointer += sizeof (struct R_DATA);
 
     if (ntohs(answers[i].resource->rtype) == T_PTR) {
-      fprintf(stderr, "\tT_PTR answer.\n");
-      answers[i].rdata = read_name_from_packet(read_pointer, &consumed);
-      read_pointer = read_pointer + consumed;
-      fprintf(stderr, "\tRdata name: %s.\n", answers[i].rdata);
-      handle_PTR_answer(&answers[i]);
+      handle_PTR_answer(read_pointer, &answers[i]);
     }
     else if (ntohs(answers[i].resource->rtype) == T_A) {
-      fprintf(stderr, "\tT_A answer.\n");
-      answers[i].rdata = malloc(ntohs(answers[i].resource->data_len));
-      for (j = 0; j < ntohs(answers[i].resource->data_len); j++) {
-        answers[i].rdata[j] = read_pointer[j];
-      }
-      answers[i].rdata[ntohs(answers[i].resource->data_len)] = '\0';
-      read_pointer = read_pointer + ntohs(answers[i].resource->data_len);
-      handle_A_answer(&answers[i]);
+      handle_A_answer(read_pointer, &answers[i]);
     }
     else {
       fprintf(stderr, "Unsupported or unknown resource type\n.\
@@ -179,6 +177,6 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
   char * read_pointer = &buf[sizeof (struct DNS_HEADER)];
   struct event_base *base = (struct event_base *) arg;
 
-  handle_questions(dns, read_pointer, buf, base);
-  handle_answers(dns, read_pointer, buf, base);
+  handle_questions(htons(dns->q_count), read_pointer, base);
+  handle_answers(htons(dns->ans_count), read_pointer, base);
 }

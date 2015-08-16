@@ -15,6 +15,8 @@
 
 #include "err.h"
 
+//#define DNS_NAME_OFFSET_MARK  (3 << 14)
+
 struct sockaddr_in get_ip(evutil_socket_t sock);
 
 void get_hostname(char * ret_name);

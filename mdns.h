@@ -21,10 +21,8 @@
 #define T_A   1
 #define T_PTR 12
 
-#define MDNS_SERVICE          "_opoznienia._dns-sd._udp.local"
+#define MDNS_SERVICE          "_services._dns-sd._udp.local"
 #define MDNS_SERVICE_SUFFIX   "._dns-sd._udp.local"
-
-//#define OFFSET_MARK  (3 << 14)
 
 //structures described:
 // http://www.zytrax.com/books/dns/ch15/
