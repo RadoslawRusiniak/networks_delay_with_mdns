@@ -8,17 +8,19 @@ void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
   memset(dns, 0, sizeof (struct DNS_HEADER));
   dns->q_count = htons(1);
 
-  char * qname = &buf[sizeof (struct DNS_HEADER)];
+  ssize_t frame_len = sizeof (struct DNS_HEADER);
+  char * qname = &buf[frame_len];
   char service[64] = MDNS_SERVICE;
   append_in_dns_name_format(qname, service);
 
+  frame_len += (sizeof (MDNS_SERVICE) + 1);
   struct QUESTION *qinfo = (struct QUESTION *)
-          &buf[sizeof (struct DNS_HEADER) + (sizeof (MDNS_SERVICE) + 1)];
+          &buf[frame_len];
   qinfo->qtype = htons(T_PTR); //type of the query
   qinfo->qclass = htons(1); //its internet
 
-  size_t length = sizeof (struct DNS_HEADER) + (sizeof (MDNS_SERVICE) + 1) + sizeof (struct QUESTION);
-  if (write(sock, buf, length) != length) {
+  frame_len += sizeof (struct QUESTION);
+  if (write(sock, buf, frame_len) != frame_len) {
     syserr("write");
   }
   fprintf(stderr, "PTR question sent via multicast.\n");
@@ -36,30 +38,35 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   struct RES_RECORD *answer = (struct RES_RECORD *) &buf[frame_len];
   answer->name = &buf[frame_len];
 
-  char hostname[256];
-  char * host_pointer = hostname;
+  char * qname = &buf[sizeof (struct DNS_HEADER)];
+  char service[64] = MDNS_SERVICE;
+  append_in_dns_name_format(qname, service);
+  frame_len += sizeof(MDNS_SERVICE) + 1;
+  
+  answer->resource = (struct R_DATA *) &buf[frame_len];
+  answer->resource->rtype = htons(T_PTR);
+  answer->resource->rclass = htons(1);
+  answer->resource->ttl = htons(255);
+  answer->resource->data_len = htons(0);
+  
+  frame_len += sizeof (struct R_DATA);
+  
+  answer->rdata = &buf[frame_len];
+  char hostname[256]; char * host_pointer = hostname;
   get_hostname(host_pointer);
   fprintf(stderr, "\thostname: %s\n", host_pointer);
   //  char service_suf[64] = MDNS_SERVICE_SUFFIX;
   strcat(host_pointer, MDNS_SERVICE_SUFFIX);
   //  hostname[strlen(host_pointer)] = '\0';
   fprintf(stderr, "\thostname with suffix: %s\n", host_pointer);
-  append_in_dns_name_format(answer->name, host_pointer);
-
-  frame_len += strlen(host_pointer) + 1;
-
-  answer->resource = (struct R_DATA *) &buf[frame_len];
-  answer->resource->rtype = htons(T_PTR);
-  answer->resource->rclass = htons(1);
-  answer->resource->ttl = htons(255);
-  answer->resource->data_len = 0;
-
-  frame_len += sizeof (struct R_DATA);
-
+  append_in_dns_name_format(answer->rdata, host_pointer);
+  
+  answer->resource->data_len = htons(strlen(host_pointer) + 1);
+  frame_len += answer->resource->data_len;
   if (write(sock, buf, frame_len) != frame_len) {
     syserr("write");
   }
-  fprintf(stderr, "PTR answer via multicast sent\n");
+  fprintf(stderr, "PTR answer sent via multicast.\n");
 }
 
 void handle_PTR_question(struct event_base *base) {
