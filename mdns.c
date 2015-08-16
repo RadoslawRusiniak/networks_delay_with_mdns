@@ -81,15 +81,15 @@ void handle_A_answer(struct RES_RECORD * answer) {
 
 }
 
-void handle_questions(struct DNS_HEADER * dns, char * read_pointer, char * buf, int * consumed, 
+void handle_questions(struct DNS_HEADER * dns, char * read_pointer, char * buf, 
         struct event_base *base) {
   
   struct QUERY questions[10];
-  int i;
+  int i, consumed = 0;
   for (i = 0; i < ntohs(dns->q_count); i++) {
     fprintf(stderr, " Question nr %d analyzed:\n", i + 1);
-    questions[i].name = read_name_from_packet(read_pointer, consumed);
-    read_pointer += *consumed;
+    questions[i].name = read_name_from_packet(read_pointer, &consumed);
+    read_pointer += consumed;
     fprintf(stderr, "\tName: %s\n", questions[i].name);
 
     questions[i].ques = (struct QUESTION *) (read_pointer);
@@ -109,15 +109,15 @@ void handle_questions(struct DNS_HEADER * dns, char * read_pointer, char * buf, 
   }
 }
 
-void handle_answers(struct DNS_HEADER * dns, char * read_pointer, char * buf, int * consumed, 
+void handle_answers(struct DNS_HEADER * dns, char * read_pointer, char * buf, 
         struct event_base *base) {
   
   struct RES_RECORD answers[10];
-  int i, j;
+  int i, j, consumed = 0;
   for (i = 0; i < ntohs(dns->ans_count); i++) {
     fprintf(stderr, " Answer nr %d analyzed:\n", i + 1);
-    answers[i].name = read_name_from_packet(read_pointer, consumed);
-    read_pointer += *consumed;
+    answers[i].name = read_name_from_packet(read_pointer, &consumed);
+    read_pointer += consumed;
     fprintf(stderr, "\tName: %s\n", answers[i].name);
 
     answers[i].resource = (struct R_DATA *) (read_pointer);
@@ -125,8 +125,8 @@ void handle_answers(struct DNS_HEADER * dns, char * read_pointer, char * buf, in
 
     if (ntohs(answers[i].resource->rtype) == T_PTR) {
       fprintf(stderr, "\tT_PTR answer.\n");
-      answers[i].rdata = read_name_from_packet(read_pointer, consumed);
-      read_pointer = read_pointer + *consumed;
+      answers[i].rdata = read_name_from_packet(read_pointer, &consumed);
+      read_pointer = read_pointer + consumed;
       fprintf(stderr, "\tRdata name: %s.\n", answers[i].rdata);
       handle_PTR_answer(&answers[i]);
     }
@@ -170,9 +170,8 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "\n %d Answers.\n", ntohs(dns->ans_count));
 
   char * read_pointer = &buf[sizeof (struct DNS_HEADER)];
-  int consumed = 0;
   struct event_base *base = (struct event_base *) arg;
 
-  handle_questions(dns, read_pointer, buf, &consumed, base);
-  handle_answers(dns, read_pointer, buf, &consumed, base);
+  handle_questions(dns, read_pointer, buf, base);
+  handle_answers(dns, read_pointer, buf, base);
 }
