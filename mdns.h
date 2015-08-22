@@ -23,6 +23,7 @@
 
 //#define MDNS_SERVICE          "_services._dns-sd._udp.local"
 #define MDNS_SERVICE          "_opoznienia._udp.local"
+#define MDNS_PROGRAM          "_opoznienia"
 
 //structures described:
 // http://www.zytrax.com/books/dns/ch15/

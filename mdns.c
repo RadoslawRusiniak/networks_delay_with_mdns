@@ -59,7 +59,7 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "PTR answer sent via multicast.\n");
 }
 
-void handle_PTR_query(struct event_base *base) {
+void handle_PTR_query(struct event_base *base, struct QUERY * question) {
   fprintf(stderr, "\tT_PTR query.\n");
   struct event *an_event =
           event_new(base, write_MDNS_sock, EV_WRITE, send_PTR_answer, NULL);
@@ -67,7 +67,7 @@ void handle_PTR_query(struct event_base *base) {
   if (event_add(an_event, NULL) == -1) syserr("Error adding an event to a base.");
 }
 
-void handle_A_query(struct QUERY * question) {
+void handle_A_query(struct event_base *base, struct QUERY * question) {
   fprintf(stderr, "\tT_A query.\n");
 
 }
@@ -107,10 +107,18 @@ void handle_questions(uint16_t nr_of_questions, char * read_pointer, struct even
     fprintf(stderr, "\tName: %s\n", questions[i].name);
     questions[i].ques = (struct QUESTION *) (read_pointer);
     if (ntohs(questions[i].ques->qtype) == T_PTR) {
-      handle_PTR_query(base);
+      if (strcmp(questions[i].name, MDNS_SERVICE) != 0) {
+        fprintf(stderr, "Question not from %s, skipping.", MDNS_SERVICE);
+        continue;
+      }
+      handle_PTR_query(base, &questions[i]);
     }
     else if (ntohs(questions[i].ques->qtype) == T_A) {
-      handle_A_query(&questions[i]);
+      if (strstr(questions[i].name, MDNS_PROGRAM) == NULL) {
+        fprintf(stderr, "Question not from %s, skipping.", MDNS_SERVICE);
+        continue;
+      }
+      handle_A_query(base, &questions[i]);
     }
     else {
       fprintf(stderr, "Unsupported or unknown resource type\n.\
