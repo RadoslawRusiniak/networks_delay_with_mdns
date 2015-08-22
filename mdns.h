@@ -21,6 +21,7 @@
 #define T_A   1
 #define T_PTR 12
 
+//#define MDNS_SERVICE          "_services._dns-sd._udp.local"
 #define MDNS_SERVICE          "_opoznienia._udp.local"
 
 //structures described:

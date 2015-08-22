@@ -19,8 +19,6 @@
 
 struct sockaddr_in get_ip(evutil_socket_t sock);
 
-void get_hostname(char * ret_name);
-
 void append_in_dns_name_format(char * dns, char * host);
 
 char * read_name_from_packet(char * read_pointer, int * count);

@@ -1,31 +1,17 @@
 #include "mdns.h"
 
+void send_mdns_query(evutil_socket_t sock, char * qname_arg, uint16_t qtype_arg);
+
 void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "Sending PTR question via multicast.\n");
-  char buf[BUF_SIZE];
-
-  struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
-  memset(dns, 0, sizeof (struct DNS_HEADER));
-  dns->q_count = htons(1);
-  
-  ssize_t frame_len = sizeof (struct DNS_HEADER);
-  
-  char * qname = &buf[frame_len];
-  char service[64] = MDNS_SERVICE;
-  append_in_dns_name_format(qname, service);
-
-  frame_len += (sizeof (MDNS_SERVICE) + 1);
-  
-  struct QUESTION *qinfo = (struct QUESTION *) &buf[frame_len];
-  qinfo->qtype = htons(T_PTR); //type of the query
-  qinfo->qclass = htons(1); //its internet
-
-  frame_len += sizeof (struct QUESTION);
-  
-  if (write(sock, buf, frame_len) != frame_len) {
-    syserr("write");
-  }
+  send_mdns_query(sock, MDNS_SERVICE, T_PTR);
   fprintf(stderr, "PTR question sent via multicast.\n");
+}
+
+void send_A_query(evutil_socket_t sock, short events, void *arg) {
+  fprintf(stderr, "Sending A question via multicast.\n");
+  send_mdns_query(sock, (char *) arg, T_A);
+  fprintf(stderr, "A question sent via multicast.\n");
 }
 
 void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
@@ -53,7 +39,7 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   answer->resource->ttl = htons(0);
   
   char hostname[256];
-  get_hostname(hostname);
+  gethostname(hostname, 256);
   strcat(hostname, ".");
   strcat(hostname, MDNS_SERVICE);
   uint16_t hostname_len = strlen(hostname) + 1;
@@ -73,26 +59,29 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "PTR answer sent via multicast.\n");
 }
 
-void handle_PTR_question(struct event_base *base) {
-  fprintf(stderr, "\tT_PTR question.\n");
+void handle_PTR_query(struct event_base *base) {
+  fprintf(stderr, "\tT_PTR query.\n");
   struct event *an_event =
           event_new(base, write_MDNS_sock, EV_WRITE, send_PTR_answer, NULL);
   if (!an_event) syserr("Error creating event.");
   if (event_add(an_event, NULL) == -1) syserr("Error adding an event to a base.");
 }
 
-void handle_A_question(struct QUERY * question) {
-  fprintf(stderr, "\tT_A question.\n");
+void handle_A_query(struct QUERY * question) {
+  fprintf(stderr, "\tT_A query.\n");
 
 }
 
-void handle_PTR_answer(char * read_pointer, struct RES_RECORD * answer) {
+void handle_PTR_answer(struct event_base *base, char * read_pointer, struct RES_RECORD * answer) {
   fprintf(stderr, "\tT_PTR answer.\n");
   int consumed = 0;
-//  answer->rdata = malloc(ntohs(answer->resource->data_len));
   answer->rdata = read_name_from_packet(read_pointer, &consumed);
   read_pointer = read_pointer + ntohs(answer->resource->data_len);
   fprintf(stderr, "\tRdata name: %s.\n", answer->rdata);
+  struct event *an_event =
+          event_new(base, write_MDNS_sock, EV_WRITE, send_A_query, answer->rdata);
+  if (!an_event) syserr("Error creating event.");
+  if (event_add(an_event, NULL) == -1) syserr("Error adding an event to a base.");
 }
 
 void handle_A_answer(char * read_pointer, struct RES_RECORD * answer) {
@@ -118,10 +107,10 @@ void handle_questions(uint16_t nr_of_questions, char * read_pointer, struct even
     fprintf(stderr, "\tName: %s\n", questions[i].name);
     questions[i].ques = (struct QUESTION *) (read_pointer);
     if (ntohs(questions[i].ques->qtype) == T_PTR) {
-      handle_PTR_question(base);
+      handle_PTR_query(base);
     }
     else if (ntohs(questions[i].ques->qtype) == T_A) {
-      handle_A_question(&questions[i]);
+      handle_A_query(&questions[i]);
     }
     else {
       fprintf(stderr, "Unsupported or unknown resource type\n.\
@@ -145,7 +134,7 @@ void handle_answers(uint16_t nr_of_answers, char * read_pointer, struct event_ba
     read_pointer += sizeof (struct R_DATA);
 
     if (ntohs(answers[i].resource->rtype) == T_PTR) {
-      handle_PTR_answer(read_pointer, &answers[i]);
+      handle_PTR_answer(base, read_pointer, &answers[i]);
     }
     else if (ntohs(answers[i].resource->rtype) == T_A) {
       handle_A_answer(read_pointer, &answers[i]);
@@ -184,4 +173,31 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
 
   handle_questions(htons(dns->q_count), read_pointer, base);
   handle_answers(htons(dns->ans_count), read_pointer, base);
+}
+
+void send_mdns_query(evutil_socket_t sock, char * qname_arg, uint16_t qtype_arg) {
+  char buf[BUF_SIZE];
+
+  struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
+  memset(dns, 0, sizeof (struct DNS_HEADER));
+  dns->q_count = htons(1);
+  
+  ssize_t frame_len = sizeof (struct DNS_HEADER);
+  
+  char * qname = &buf[frame_len];
+  char service[256];
+  strcpy(service, qname_arg);
+  append_in_dns_name_format(qname, service);
+
+  frame_len += strlen (service) + 1;
+  
+  struct QUESTION *qinfo = (struct QUESTION *) &buf[frame_len];
+  qinfo->qtype = htons(qtype_arg); //type of the query
+  qinfo->qclass = htons(1); //its internet
+
+  frame_len += sizeof (struct QUESTION);
+  
+  if (write(sock, buf, frame_len) != frame_len) {
+    syserr("write");
+  }
 }

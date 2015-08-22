@@ -39,9 +39,9 @@ int main(int argc, char *argv[])
   fprintf(stderr, "Instance data:\n");
   struct sockaddr_in sin = get_ip(write_MDNS_sock);
   fprintf(stderr, "\tMy ip: %s, port number %d\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
-  char hostname[256]; char * host_pointer = hostname;
-  get_hostname(host_pointer);
-  fprintf(stderr, "\tMy hostname: %s\n", host_pointer);
+  char hostname[256];
+  gethostname(hostname, 256);
+  fprintf(stderr, "\tMy hostname: %s\n", hostname);
   
   fprintf(stderr, "Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
