@@ -9,16 +9,19 @@ void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
   dns->q_count = htons(1);
   
   ssize_t frame_len = sizeof (struct DNS_HEADER);
+  
   char * qname = &buf[frame_len];
   char service[64] = MDNS_SERVICE;
   append_in_dns_name_format(qname, service);
 
   frame_len += (sizeof (MDNS_SERVICE) + 1);
+  
   struct QUESTION *qinfo = (struct QUESTION *) &buf[frame_len];
   qinfo->qtype = htons(T_PTR); //type of the query
   qinfo->qclass = htons(1); //its internet
 
   frame_len += sizeof (struct QUESTION);
+  
   if (write(sock, buf, frame_len) != frame_len) {
     syserr("write");
   }
@@ -36,34 +39,34 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   dns->ans_count = htons(1);
 
   ssize_t frame_len = sizeof (struct DNS_HEADER);
-  struct RES_RECORD *answer = (struct RES_RECORD *) &buf[frame_len];
-  answer->name = &buf[frame_len];
-
-  char * qname = &buf[sizeof (struct DNS_HEADER)];
+  
+  char * qname = &buf[frame_len];
   char service[64] = MDNS_SERVICE;
   append_in_dns_name_format(qname, service);
+  
   frame_len += sizeof(MDNS_SERVICE) + 1;
   
+  struct RES_RECORD *answer = (struct RES_RECORD *) &buf[frame_len];
   answer->resource = (struct R_DATA *) &buf[frame_len];
   answer->resource->rtype = htons(T_PTR);
   answer->resource->rclass = htons(1);
-  answer->resource->ttl = htons(255);
-  answer->resource->data_len = htons(0);
+  answer->resource->ttl = htons(0);
+  
+  char hostname[256];
+  get_hostname(hostname);
+  strcat(hostname, ".");
+  strcat(hostname, MDNS_SERVICE);
+  uint16_t hostname_len = strlen(hostname) + 1;
+  
+  answer->resource->data_len = htons(hostname_len);
   
   frame_len += sizeof (struct R_DATA);
   
-  answer->rdata = &buf[frame_len];
-  char hostname[256]; char * host_pointer = hostname;
-  get_hostname(host_pointer);
-  fprintf(stderr, "\thostname: %s\n", host_pointer);
-  //  char service_suf[64] = MDNS_SERVICE_SUFFIX;
-  strcat(host_pointer, MDNS_SERVICE_SUFFIX);
-  //  hostname[strlen(host_pointer)] = '\0';
-  fprintf(stderr, "\thostname with suffix: %s\n", host_pointer);
-  append_in_dns_name_format(answer->rdata, host_pointer);
+  char * host_pointer = &buf[frame_len];
+  append_in_dns_name_format(host_pointer, hostname);
   
-  answer->resource->data_len = htons(strlen(host_pointer) + 1);
-  frame_len += htons(answer->resource->data_len);
+  frame_len += hostname_len;
+  
   if (write(sock, buf, frame_len) != frame_len) {
     syserr("write");
   }

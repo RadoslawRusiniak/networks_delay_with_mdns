@@ -39,15 +39,11 @@ void append_in_dns_name_format(char * dns, char * host) {
   strcat(host, ".");
 
   int last_appended = 0, i, len = strlen(host);
-  fprintf(stderr, "append, len: %d host: %s\n", len, host);
   for (i = 0; i < len; ++i) {
     if (host[i] == '.') {
-      fprintf(stderr, "dot %d\n", i - last_appended);
       *dns++ = i - last_appended;
       for (; last_appended < i; ++last_appended) {
         *dns++ = host[last_appended];
-        fprintf(stderr, "%c", *(--dns));
-        dns++;
       }
       ++last_appended;
     }
