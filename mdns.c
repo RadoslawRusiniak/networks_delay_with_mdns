@@ -36,7 +36,7 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   answer->resource = (struct R_DATA *) &buf[frame_len];
   answer->resource->rtype = htons(T_PTR);
   answer->resource->rclass = htons(1);
-  answer->resource->ttl = htons(0);
+  answer->resource->ttl = htonl(120);
   
   char hostname[256];
   gethostname(hostname, 256);
