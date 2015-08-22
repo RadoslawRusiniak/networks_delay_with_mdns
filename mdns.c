@@ -1,6 +1,7 @@
 #include "mdns.h"
 
 void send_mdns_query(evutil_socket_t sock, char * qname_arg, uint16_t qtype_arg);
+void send_mdns_answer(evutil_socket_t sock, char * qname_arg, char * rdata_arg, uint16_t rtype_arg);
 
 void send_PTR_query(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "Sending PTR question via multicast.\n");
@@ -16,51 +17,28 @@ void send_A_query(evutil_socket_t sock, short events, void *arg) {
 
 void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "Sending PTR answer via multicast.\n");
-  char buf[BUF_SIZE];
-
-  struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
-  memset(dns, 0, sizeof (struct DNS_HEADER));
-  dns->qr = 1;
-  dns->aa = 1;
-  dns->ans_count = htons(1);
-
-  ssize_t frame_len = sizeof (struct DNS_HEADER);
-  
-  char * qname = &buf[frame_len];
-  char service[64] = MDNS_SERVICE;
-  append_in_dns_name_format(qname, service);
-  
-  frame_len += sizeof(MDNS_SERVICE) + 1;
-  
-  struct RES_RECORD *answer = (struct RES_RECORD *) &buf[frame_len];
-  answer->resource = (struct R_DATA *) &buf[frame_len];
-  answer->resource->rtype = htons(T_PTR);
-  answer->resource->rclass = htons(1);
-  answer->resource->ttl = htonl(120);
-  
   char hostname[256];
   gethostname(hostname, 256);
   strcat(hostname, ".");
   strcat(hostname, MDNS_SERVICE);
-  uint16_t hostname_len = strlen(hostname) + 1;
-  
-  answer->resource->data_len = htons(hostname_len);
-  
-  frame_len += sizeof (struct R_DATA);
-  
-  char * host_pointer = &buf[frame_len];
-  append_in_dns_name_format(host_pointer, hostname);
-  
-  frame_len += hostname_len;
-  
-  if (write(sock, buf, frame_len) != frame_len) {
-    syserr("write");
-  }
+  send_mdns_answer(sock, MDNS_SERVICE, hostname, T_PTR);
   fprintf(stderr, "PTR answer sent via multicast.\n");
+}
+
+void send_A_answer(evutil_socket_t sock, short events, void *arg) {
+  fprintf(stderr, "Sending A answer via multicast.\n");
+  uint32_t ip_addr; // TODO get ip address and put it here in 32bit number
+  ip_addr = (127 << 24) + (0 << 16) + (0 << 8) + 1;
+  send_mdns_answer(sock, (char *) arg, (char *) &ip_addr, T_A);
+  fprintf(stderr, "A answer sent via multicast.\n");
 }
 
 void handle_PTR_query(struct event_base *base, struct QUERY * question) {
   fprintf(stderr, "\tT_PTR query.\n");
+  if (strcmp(question->name, MDNS_SERVICE) != 0) {
+    fprintf(stderr, "Query not for: %s, skipping.", MDNS_PROGRAM);
+    return;
+  }
   struct event *an_event =
           event_new(base, write_MDNS_sock, EV_WRITE, send_PTR_answer, NULL);
   if (!an_event) syserr("Error creating event.");
@@ -69,7 +47,20 @@ void handle_PTR_query(struct event_base *base, struct QUERY * question) {
 
 void handle_A_query(struct event_base *base, struct QUERY * question) {
   fprintf(stderr, "\tT_A query.\n");
-
+  if (strstr(question->name, MDNS_PROGRAM) == NULL) {
+    fprintf(stderr, "Query not for: %s, skipping.", MDNS_PROGRAM);
+    return;
+  }
+  char hostname[256];
+  gethostname(hostname, 256);
+  if (strstr(question->name, hostname) == NULL) {
+    fprintf(stderr, "Query for other host, skipping.");
+    return;
+  }
+  struct event *an_event =
+          event_new(base, write_MDNS_sock, EV_WRITE, send_A_answer, question->name);
+  if (!an_event) syserr("Error creating event.");
+  if (event_add(an_event, NULL) == -1) syserr("Error adding an event to a base.");
 }
 
 void handle_PTR_answer(struct event_base *base, char * read_pointer, struct RES_RECORD * answer) {
@@ -107,17 +98,9 @@ void handle_questions(uint16_t nr_of_questions, char * read_pointer, struct even
     fprintf(stderr, "\tName: %s\n", questions[i].name);
     questions[i].ques = (struct QUESTION *) (read_pointer);
     if (ntohs(questions[i].ques->qtype) == T_PTR) {
-      if (strcmp(questions[i].name, MDNS_SERVICE) != 0) {
-        fprintf(stderr, "Question not from %s, skipping.", MDNS_SERVICE);
-        continue;
-      }
       handle_PTR_query(base, &questions[i]);
     }
     else if (ntohs(questions[i].ques->qtype) == T_A) {
-      if (strstr(questions[i].name, MDNS_PROGRAM) == NULL) {
-        fprintf(stderr, "Question not from %s, skipping.", MDNS_SERVICE);
-        continue;
-      }
       handle_A_query(base, &questions[i]);
     }
     else {
@@ -125,6 +108,7 @@ void handle_questions(uint16_t nr_of_questions, char * read_pointer, struct even
                         Next resource records in this frame skipped\n");
       return;
     }
+    read_pointer += sizeof(struct QUESTION);
   }
 }
 
@@ -193,17 +177,56 @@ void send_mdns_query(evutil_socket_t sock, char * qname_arg, uint16_t qtype_arg)
   ssize_t frame_len = sizeof (struct DNS_HEADER);
   
   char * qname = &buf[frame_len];
-  char service[256];
-  strcpy(service, qname_arg);
-  append_in_dns_name_format(qname, service);
+  char qname_arr[256];
+  strcpy(qname_arr, qname_arg);
+  append_in_dns_name_format(qname, qname_arr);
 
-  frame_len += strlen (service) + 1;
+  frame_len += strlen(qname_arr) + 1;
   
   struct QUESTION *qinfo = (struct QUESTION *) &buf[frame_len];
   qinfo->qtype = htons(qtype_arg); //type of the query
   qinfo->qclass = htons(1); //its internet
 
   frame_len += sizeof (struct QUESTION);
+  
+  if (write(sock, buf, frame_len) != frame_len) {
+    syserr("write");
+  }
+}
+
+void send_mdns_answer(evutil_socket_t sock, char * qname_arg, char * rdata_arg, uint16_t rtype_arg) {
+  char buf[BUF_SIZE];
+
+  struct DNS_HEADER *dns = (struct DNS_HEADER *) &buf;
+  memset(dns, 0, sizeof (struct DNS_HEADER));
+  dns->qr = 1;
+  dns->aa = 1;
+  dns->ans_count = htons(1);
+
+  ssize_t frame_len = sizeof (struct DNS_HEADER);
+  
+  char * qname = &buf[frame_len];
+  char qname_arr[256];
+  strcpy(qname_arr, qname_arg);
+  append_in_dns_name_format(qname, qname_arr);
+  
+  frame_len += strlen(qname_arr) + 1;
+  
+  struct RES_RECORD *answer = (struct RES_RECORD *) &buf[frame_len];
+  answer->resource = (struct R_DATA *) &buf[frame_len];
+  answer->resource->rtype = htons(rtype_arg);
+  answer->resource->rclass = htons(1);
+  answer->resource->ttl = htonl(120);
+  answer->resource->data_len = htons(strlen(rdata_arg) + 1);
+  
+  frame_len += sizeof (struct R_DATA);
+  
+  char * rdata = &buf[frame_len];
+  char rdata_arr[256];
+  strcpy(rdata_arr, rdata_arg);
+  append_in_dns_name_format(rdata, rdata_arr);
+  
+  frame_len += strlen(rdata_arg) + 1;
   
   if (write(sock, buf, frame_len) != frame_len) {
     syserr("write");

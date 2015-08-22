@@ -1,14 +1,5 @@
 #include "util.h"
 
-struct sockaddr_in get_ip(evutil_socket_t sock) {
-  struct sockaddr_in sin;
-  socklen_t len = sizeof(sin);
-  if (getsockname(sock, (struct sockaddr *)&sin, &len) == -1) {
-    syserr("getsockname");
-  }
-  return sin;
-}
-
 void append_in_dns_name_format(char * dns, char * host) {
   //dns name format: 3wwwm5imuw3edu2pl0 
   strcat(host, ".");

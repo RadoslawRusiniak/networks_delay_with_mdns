@@ -17,8 +17,6 @@
 
 //#define DNS_NAME_OFFSET_MARK  (3 << 14)
 
-struct sockaddr_in get_ip(evutil_socket_t sock);
-
 void append_in_dns_name_format(char * dns, char * host);
 
 char * read_name_from_packet(char * read_pointer, int * count);
