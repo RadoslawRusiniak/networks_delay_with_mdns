@@ -1,5 +1,24 @@
 #include "util.h"
 
+struct sockaddr_in get_ip_address() {
+  struct ifaddrs * addrs, * tmp;
+  struct sockaddr_in addr;
+  getifaddrs(&addrs);
+  tmp = addrs;
+
+  while (tmp) {
+    if (tmp->ifa_addr && (tmp->ifa_addr->sa_family == AF_INET)
+        && (tmp->ifa_flags & IFF_UP) && (tmp->ifa_flags & IFF_RUNNING)
+        && (strcmp(tmp->ifa_name, "lo") != 0)) {
+      memcpy(&addr, tmp->ifa_addr, sizeof(struct sockaddr_in));
+      break;
+    }
+    tmp = tmp->ifa_next;
+  }
+  freeifaddrs(addrs);
+  return addr;
+}
+
 void append_in_dns_name_format(char * dns, char * host) {
   //dns name format: 3wwwm5imuw3edu2pl0 
   strcat(host, ".");

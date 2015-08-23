@@ -27,9 +27,10 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
 
 void send_A_answer(evutil_socket_t sock, short events, void *arg) {
   fprintf(stderr, "Sending A answer via multicast.\n");
-  uint32_t ip_addr; // TODO get ip address and put it here in 32bit number
-  ip_addr = (127 << 24) + (0 << 16) + (0 << 8) + 1;
-  send_mdns_answer(sock, (char *) arg, (char *) &ip_addr, T_A);
+  char * host = (char *) arg;
+  struct sockaddr_in ip_addr = get_ip_address();
+  char * ip_addr_char = (char *) &ip_addr.sin_addr.s_addr;
+  send_mdns_answer(sock, host, ip_addr_char, T_A);
   fprintf(stderr, "A answer sent via multicast.\n");
 }
 
@@ -83,6 +84,11 @@ void handle_A_answer(char * read_pointer, struct RES_RECORD * answer) {
     answer->rdata[j] = read_pointer[j];
   }
   answer->rdata[ntohs(answer->resource->data_len)] = '\0';
+  uint32_t addr_int;
+  strcpy((char *) &addr_int, answer->rdata);
+  struct in_addr ip_addr;
+  ip_addr.s_addr = addr_int;
+  fprintf(stderr, "\tIp address from rdata: %s\n", inet_ntoa(ip_addr));
   read_pointer = read_pointer + ntohs(answer->resource->data_len);
 }
 
@@ -217,16 +223,27 @@ void send_mdns_answer(evutil_socket_t sock, char * qname_arg, char * rdata_arg, 
   answer->resource->rtype = htons(rtype_arg);
   answer->resource->rclass = htons(1);
   answer->resource->ttl = htonl(120);
-  answer->resource->data_len = htons(strlen(rdata_arg) + 1);
+  uint16_t resource_data_len;
+  if (rtype_arg == T_PTR) {
+    answer->resource->data_len = htons(strlen(rdata_arg) + 1);
+    resource_data_len = strlen(rdata_arg) + 1;
+  } else if (rtype_arg == T_A) {
+    answer->resource->data_len = htons(strlen(rdata_arg));
+    resource_data_len = strlen(rdata_arg);
+  }
   
   frame_len += sizeof (struct R_DATA);
   
   char * rdata = &buf[frame_len];
   char rdata_arr[256];
   strcpy(rdata_arr, rdata_arg);
-  append_in_dns_name_format(rdata, rdata_arr);
+  if (rtype_arg == T_PTR) {
+    append_in_dns_name_format(rdata, rdata_arr);
+  } else if (rtype_arg == T_A) {
+    strcpy(rdata, rdata_arr);
+  }
   
-  frame_len += strlen(rdata_arg) + 1;
+  frame_len += resource_data_len;
   
   if (write(sock, buf, frame_len) != frame_len) {
     syserr("write");

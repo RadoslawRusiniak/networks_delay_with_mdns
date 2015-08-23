@@ -37,9 +37,11 @@ int main(int argc, char *argv[])
   struct event * read_mcast_event = create_read_mcast_event(base, read_MDNS_sock);
   
   fprintf(stderr, "Instance data:\n");
+  struct sockaddr_in addr = get_ip_address();
   char hostname[256];
   gethostname(hostname, 256);
-  fprintf(stderr, "\tMy hostname: %s\n", hostname);
+  fprintf(stderr, " Ip: %s\n", inet_ntoa(addr.sin_addr));
+  fprintf(stderr, " Hostname: %s\n", hostname);
   
   fprintf(stderr, "Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");

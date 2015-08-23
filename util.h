@@ -13,9 +13,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <ifaddrs.h>
+#include <net/if.h>
+
 #include "err.h"
 
 //#define DNS_NAME_OFFSET_MARK  (3 << 14)
+
+struct sockaddr_in get_ip_address();
 
 void append_in_dns_name_format(char * dns, char * host);
 
