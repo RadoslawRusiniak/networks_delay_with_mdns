@@ -21,6 +21,7 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   gethostname(hostname, 256);
   strcat(hostname, ".");
   strcat(hostname, MDNS_SERVICE);
+  fprintf(stderr, "PTR answer, hostname len: %d\n", strlen(hostname));
   send_mdns_answer(sock, MDNS_SERVICE, hostname, T_PTR);
   fprintf(stderr, "PTR answer sent via multicast.\n");
 }
@@ -225,12 +226,11 @@ void send_mdns_answer(evutil_socket_t sock, char * qname_arg, char * rdata_arg, 
   answer->resource->ttl = htonl(120);
   uint16_t resource_data_len;
   if (rtype_arg == T_PTR) {
-    answer->resource->data_len = htons(strlen(rdata_arg) + 1);
     resource_data_len = strlen(rdata_arg) + 1;
   } else if (rtype_arg == T_A) {
-    answer->resource->data_len = htons(strlen(rdata_arg));
     resource_data_len = strlen(rdata_arg);
   }
+  answer->resource->data_len = htons(resource_data_len);
   
   frame_len += sizeof (struct R_DATA);
   
