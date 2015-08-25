@@ -97,3 +97,43 @@ struct event * create_read_mcast_event(struct event_base *base, evutil_socket_t 
 
   return event;
 }
+
+evutil_socket_t create_icmp_socket(struct event_base * base) {
+  evutil_socket_t sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  if (sock == -1 ||
+          evutil_make_listen_socket_reuseable(sock) ||
+          evutil_make_socket_nonblocking(sock)) {
+    syserr("socket");
+  }
+  return sock;
+}
+
+struct event * create_icmp_event(struct event_base * base, 
+        evutil_socket_t sock, int queries_interval) {
+  
+  struct timeval time;
+  time.tv_sec = queries_interval;
+  time.tv_usec = 0;
+  
+  struct event *icmp_event =
+          event_new(base, sock, EV_PERSIST, NULL, NULL); // TODO put icmp sending function
+  if (!icmp_event) {
+    syserr("Creating timer event.");
+  }
+  if (evtimer_add(icmp_event, &time)) {
+    syserr("Adding timer event to base.");
+  }
+  return icmp_event;
+}
+
+void close_sockets() {
+  if (close(read_MDNS_sock) == -1) {
+    syserr("close read_MDNS_sock");
+  }
+  if (close(write_MDNS_sock) == -1) {
+    syserr("close write_MDNS_sock");
+  }
+  if (close(icmp_sock) == - 1) {
+    syserr("close icmp_sock");
+  }
+}

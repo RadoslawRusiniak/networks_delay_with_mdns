@@ -21,7 +21,7 @@ void send_PTR_answer(evutil_socket_t sock, short events, void *arg) {
   gethostname(hostname, 256);
   strcat(hostname, ".");
   strcat(hostname, MDNS_SERVICE);
-  fprintf(stderr, "PTR answer, hostname len: %d\n", strlen(hostname));
+//  fprintf(stderr, "PTR answer, hostname len: %d\n", strlen(hostname));
   send_mdns_answer(sock, MDNS_SERVICE, hostname, T_PTR);
   fprintf(stderr, "PTR answer sent via multicast.\n");
 }
@@ -90,6 +90,7 @@ void handle_A_answer(char * read_pointer, struct RES_RECORD * answer) {
   struct in_addr ip_addr;
   ip_addr.s_addr = addr_int;
   fprintf(stderr, "\tIp address from rdata: %s\n", inet_ntoa(ip_addr));
+  handle_incoming_address(answer->name, ip_addr);
   read_pointer = read_pointer + ntohs(answer->resource->data_len);
 }
 

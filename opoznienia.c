@@ -18,6 +18,7 @@
 #include "socket_event_manager.h"
 #include "mdns.h"
 #include "util.h"
+#include "delays.h"
 
 int main(int argc, char *argv[])
 {
@@ -36,12 +37,18 @@ int main(int argc, char *argv[])
   assert(read_MDNS_sock);
   struct event * read_mcast_event = create_read_mcast_event(base, read_MDNS_sock);
   
+  icmp_sock = create_icmp_socket(base);
+  assert(icmp_sock);
+  struct event * icmp_event = create_icmp_event(base, icmp_sock, 1);
+  
   fprintf(stderr, "Instance data:\n");
   struct sockaddr_in addr = get_ip_address();
   char hostname[256];
   gethostname(hostname, 256);
   fprintf(stderr, " Ip: %s\n", inet_ntoa(addr.sin_addr));
   fprintf(stderr, " Hostname: %s\n", hostname);
+  
+  //fprintf(stderr, "icmp check: %lld\n", ICMPMeasure());
   
   fprintf(stderr, "Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
@@ -50,6 +57,7 @@ int main(int argc, char *argv[])
   event_free(read_mcast_event);
   event_free(write_mcast_event);
   event_base_free(base);
-
+  close_sockets();
+  
   return 0;
 }

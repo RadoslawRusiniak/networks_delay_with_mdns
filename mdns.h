@@ -15,8 +15,7 @@
 #include "err.h"
 #include "socket_event_manager.h"
 #include "util.h"
-
-#define BUF_SIZE 65536
+#include "delays.h"
 
 #define T_A   1
 #define T_PTR 12
