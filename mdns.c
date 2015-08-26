@@ -153,7 +153,8 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
   socklen_t len;
   ssize_t result;
   result = recvfrom(sock, buf, sizeof (buf), 0, (struct sockaddr*) &src_addr, &len);
-  fprintf(stderr, "\nReceived %zd bytes from %s:%d\n",
+  fprintf(stderr, "\nReceived multicast data\n");
+  fprintf(stderr, " Received %zd bytes from %s:%d\n",
           result, inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port));
 
   if (result < 0) {
@@ -164,9 +165,9 @@ void read_mcast_data(evutil_socket_t sock, short events, void *arg) {
   }
 
   struct DNS_HEADER * dns = (struct DNS_HEADER *) &buf;
-  fprintf(stderr, "The response contains: ");
-  fprintf(stderr, "\n %d Questions.", ntohs(dns->q_count));
-  fprintf(stderr, "\n %d Answers.\n", ntohs(dns->ans_count));
+  fprintf(stderr, " The response contains: ");
+  fprintf(stderr, "\n  %d Questions.", ntohs(dns->q_count));
+  fprintf(stderr, "\n  %d Answers.\n", ntohs(dns->ans_count));
 
   char * read_pointer = &buf[sizeof (struct DNS_HEADER)];
   struct event_base *base = (struct event_base *) arg;

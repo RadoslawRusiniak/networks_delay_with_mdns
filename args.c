@@ -1,6 +1,7 @@
 #include "args.h"
 
 int SEND_QUERIES_INTERVAL = 10;
+int DELAYS_MEASUREMENT_INTERVAL = 1;
 
 int is_numeric(char *str)
 {
@@ -15,7 +16,7 @@ int is_numeric(char *str)
 void parse_arguments(int argc, char * const argv[])
 {
   int opt, tmp;
-  while ((opt = getopt(argc, argv, "T:")) != -1) {
+  while ((opt = getopt(argc, argv, "T:t:")) != -1) {
     switch (opt) {
       case 'T':
         tmp = atoi(optarg);
@@ -25,6 +26,17 @@ void parse_arguments(int argc, char * const argv[])
           SEND_QUERIES_INTERVAL = tmp;
           if (SEND_QUERIES_INTERVAL < 1) {
             fatal("Not acceptable number for SEND_QUERIES_INTERVAL");
+          }
+        }
+      break;
+      case 't':
+        tmp = atoi(optarg);
+        if (tmp < 0 || is_numeric(optarg) != EXIT_SUCCESS) {
+          fatal("Invalid DELAYS_MEASURMENT_INTERVAL");
+        } else {
+          DELAYS_MEASUREMENT_INTERVAL = tmp;
+          if (DELAYS_MEASUREMENT_INTERVAL < 1) {
+            fatal("Not acceptable number for DELAYS_MEASUREMENT_INTERVAL");
           }
         }
       break;
@@ -46,4 +58,5 @@ void print_arguments()
 {
   fprintf(stderr, "Arguments:\n");
   fprintf(stderr, "SEND_QUERIES_INTERVAL: %d\n", SEND_QUERIES_INTERVAL);
+  fprintf(stderr, "DELAYS_MEASUREMENT_INTERVAL: %d\n", DELAYS_MEASUREMENT_INTERVAL);
 }

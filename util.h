@@ -26,5 +26,7 @@ void append_in_dns_name_format(char * dns, char * host);
 
 char * read_name_from_packet(char * read_pointer, int * count);
 
+unsigned short in_cksum(unsigned short *addr, int len);
+
 #endif	/* UTIL_H */
 

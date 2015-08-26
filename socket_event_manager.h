@@ -37,8 +37,10 @@ struct event * create_read_mcast_event(struct event_base * base, evutil_socket_t
 
 evutil_socket_t create_icmp_socket(struct event_base * base);
 
-struct event * create_icmp_event(struct event_base * base, 
+struct event * create_icmp_send_event(struct event_base * base, 
         evutil_socket_t sock, int queries_interval);
+
+struct event * create_icmp_recv_event(struct event_base * base, evutil_socket_t sock);
 
 void close_sockets();
 

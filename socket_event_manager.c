@@ -108,7 +108,7 @@ evutil_socket_t create_icmp_socket(struct event_base * base) {
   return sock;
 }
 
-struct event * create_icmp_event(struct event_base * base, 
+struct event * create_icmp_send_event(struct event_base * base, 
         evutil_socket_t sock, int queries_interval) {
   
   struct timeval time;
@@ -116,7 +116,7 @@ struct event * create_icmp_event(struct event_base * base,
   time.tv_usec = 0;
   
   struct event *icmp_event =
-          event_new(base, sock, EV_PERSIST, NULL, NULL); // TODO put icmp sending function
+          event_new(base, sock, EV_PERSIST, send_ping_requests, NULL);
   if (!icmp_event) {
     syserr("Creating timer event.");
   }
@@ -124,6 +124,19 @@ struct event * create_icmp_event(struct event_base * base,
     syserr("Adding timer event to base.");
   }
   return icmp_event;
+}
+
+struct event * create_icmp_recv_event(struct event_base *base, evutil_socket_t sock)
+{    
+  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, receive_ping_reply, NULL);
+  if (!event) {
+    syserr("Error creating recv icmp event");
+  }
+  if (event_add(event, NULL) == EXIT_FAILURE) {
+    syserr("Error adding recv icmp event to a base.");
+  }
+
+  return event;
 }
 
 void close_sockets() {

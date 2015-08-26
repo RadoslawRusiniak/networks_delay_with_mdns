@@ -9,6 +9,7 @@
 #include "err.h"
   
 int SEND_QUERIES_INTERVAL;
+int DELAYS_MEASUREMENT_INTERVAL;
 
 void parse_arguments(int argc, char * const argv[]);
 void print_arguments();

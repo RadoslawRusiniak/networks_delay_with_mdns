@@ -39,7 +39,8 @@ int main(int argc, char *argv[])
   
   icmp_sock = create_icmp_socket(base);
   assert(icmp_sock);
-  struct event * icmp_event = create_icmp_event(base, icmp_sock, 1);
+  struct event * icmp_send_event = create_icmp_send_event(base, icmp_sock, DELAYS_MEASUREMENT_INTERVAL);
+  struct event * icmp_recv_event = create_icmp_recv_event(base, icmp_sock);
   
   fprintf(stderr, "Instance data:\n");
   struct sockaddr_in addr = get_ip_address();
@@ -48,14 +49,14 @@ int main(int argc, char *argv[])
   fprintf(stderr, " Ip: %s\n", inet_ntoa(addr.sin_addr));
   fprintf(stderr, " Hostname: %s\n", hostname);
   
-  //fprintf(stderr, "icmp check: %lld\n", ICMPMeasure());
-  
   fprintf(stderr, "Entering dispatch loop.\n");
   if (event_base_dispatch(base) == -1) syserr("Error running dispatch loop.");
   fprintf(stderr, "Dispatch loop finished.\n");
 
   event_free(read_mcast_event);
   event_free(write_mcast_event);
+  event_free(icmp_send_event);
+  event_free(icmp_recv_event);
   event_base_free(base);
   close_sockets();
   

@@ -14,14 +14,20 @@
 #include <sys/time.h>
 
 #include "err.h"
+#include "util.h"
 #include "socket_event_manager.h"
 
-#define ICMP_DATA 0x32116209
+#define BSIZE 1000
+#define ICMP_HEADER_LEN 8
+#define ICMP_ID 0x13
+#define ICMP_DATA 32116209
 
 struct delay {
-  int avg;
-  int min;
-  int max;
+  int avg_delay;
+  int nr_of_measurements;
+  int sum_of_delays;
+  int last_measurements[10];
+  int next_index;
 };
 
 struct peer {
@@ -35,6 +41,11 @@ struct peer {
 struct peer peers[100];
 
 void handle_incoming_address(char * hostname, struct in_addr addr);
+
+void send_ping_requests(evutil_socket_t sock, short events, void * arg);
+
+void receive_ping_reply(evutil_socket_t sock, short events, void * arg);
+
 
 #endif	/* DELAYS_H */
 
