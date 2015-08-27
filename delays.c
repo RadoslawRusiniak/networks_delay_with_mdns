@@ -1,13 +1,12 @@
 #include "delays.h"
 
 int nr_of_peers = 0;
+uint16_t next_seq_icmp_nr = 0;
 
 void init_peer(int pos, char * host, struct in_addr addr) {
+  memset(&peers[pos], 0, sizeof (struct peer));
   strcpy(peers[pos].hostname, host);
   peers[pos].ip_addr = addr;
-  peers[pos].icmp_delay.nr_of_measurements = 0;
-  peers[pos].icmp_delay.next_index = 0;
-  peers[pos].icmp_delay.sum_of_delays = 0;
 }
 
 void handle_incoming_address(char * host, struct in_addr addr) {
@@ -27,17 +26,18 @@ void handle_incoming_address(char * host, struct in_addr addr) {
   fprintf(stderr, "Incoming address handled, nr_of_peers: %d\n", nr_of_peers);
 }
 
-void send_ping_request(evutil_socket_t sock, struct in_addr addr);
+void send_ping_request(evutil_socket_t sock, struct in_addr addr, long long * time_before_send);
+void calculate_icmp_delay_for_addr(struct in_addr addr);
 
 void send_ping_requests(evutil_socket_t sock, short events, void * arg) {
   int i;
   for (i = 0; i < nr_of_peers; ++i) {
     fprintf(stderr, "Sending ping request to %d-th peer\n", i + 1);
-    send_ping_request(sock, peers[i].ip_addr);
+    send_ping_request(sock, peers[i].ip_addr, &peers[i].icmp_delay.time_in_usec_before_send);
   }
 }
 
-void send_ping_request(evutil_socket_t sock, struct in_addr addr) {
+void send_ping_request(evutil_socket_t sock, struct in_addr addr, long long * time_before_send) {
   struct sockaddr_in send_addr;
   struct icmp* icmp;
   char send_buffer[BSIZE];
@@ -52,7 +52,7 @@ void send_ping_request(evutil_socket_t sock, struct in_addr addr) {
   icmp->icmp_type = ICMP_ECHO;
   icmp->icmp_code = 0;
   icmp->icmp_id = htons(ICMP_ID);
-  icmp->icmp_seq = htons(0);
+  icmp->icmp_seq = htons(next_seq_icmp_nr++);
   data_len = snprintf((char*) (send_buffer + ICMP_HEADER_LEN), sizeof(send_buffer)-ICMP_HEADER_LEN, 
           "%d", ICMP_DATA);
   if (data_len < 1)
@@ -61,6 +61,10 @@ void send_ping_request(evutil_socket_t sock, struct in_addr addr) {
   icmp->icmp_cksum = 0;
   icmp->icmp_cksum = in_cksum((unsigned short*) icmp, icmp_len);
 
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  *time_before_send = 1000000 * tv.tv_sec + tv.tv_usec;
+  
   len = sendto(sock, (void*) icmp, icmp_len, 0, (struct sockaddr *) &send_addr, 
                (socklen_t) sizeof(send_addr));
   if (icmp_len != (ssize_t) len)
@@ -107,11 +111,39 @@ void receive_ping_reply(evutil_socket_t sock, short event, void * arg) {
   }
 
   if (ntohs(icmp->icmp_id) != ICMP_ID)
-    fatal("reply with id %d different from my pid %d", ntohs(icmp->icmp_id), ICMP_ID);
+    fatal("reply with id %d different from my ID %d", ntohs(icmp->icmp_id), ICMP_ID);
 
   data_len = len - ip_header_len - ICMP_HEADER_LEN;
   printf(" Correct ICMP echo reply; payload size %zd content %.*s\n", data_len,
          (int) data_len, (rcv_buffer+ip_header_len+ICMP_HEADER_LEN));
+  
+  calculate_icmp_delay_for_addr(rcv_addr.sin_addr);
+}
+
+void calculate_icmp_delay_for_addr(struct in_addr addr) {
+  int i = 0, found = 0;
+  for (i = 0; i < nr_of_peers; ++i) {
+    if (peers[i].ip_addr.s_addr == addr.s_addr) {
+      found = 1;
+      struct timeval tv;
+      gettimeofday(&tv, NULL);
+      long long act_time = 1000000 * tv.tv_sec + tv.tv_usec;
+      long long diff = act_time - peers[i].icmp_delay.time_in_usec_before_send;
+      peers[i].icmp_delay.nr_of_measurements += 1;
+      long long add_to_sum = 
+        diff - peers[i].icmp_delay.last_measurements[peers[i].icmp_delay.next_index];
+      peers[i].icmp_delay.last_measurements[peers[i].icmp_delay.next_index] = diff;
+      peers[i].icmp_delay.next_index = (peers[i].icmp_delay.next_index + 1) % 10;
+      peers[i].icmp_delay.sum_of_delays += add_to_sum;
+      peers[i].icmp_delay.avg_delay = 
+        peers[i].icmp_delay.sum_of_delays * 1.0 / min(10, peers[i].icmp_delay.nr_of_measurements);
+      fprintf(stderr, "Delay calculated for icmp, nr of measurements: %d, avg_delay: %f\n", 
+              peers[i].icmp_delay.nr_of_measurements, peers[i].icmp_delay.avg_delay);
+    }
+  }
+  if (!found) {
+    fprintf(stderr, "Address %u not found in neighbours list\n", addr.s_addr);
+  }
 }
 
 

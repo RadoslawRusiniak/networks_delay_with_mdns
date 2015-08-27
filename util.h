@@ -28,5 +28,7 @@ char * read_name_from_packet(char * read_pointer, int * count);
 
 unsigned short in_cksum(unsigned short *addr, int len);
 
+int min(int a, int b);
+
 #endif	/* UTIL_H */
 

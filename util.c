@@ -95,3 +95,10 @@ unsigned short in_cksum(unsigned short *addr, int len)
 	answer = ~sum;				/* truncate to 16 bits */
 	return(answer);
 }
+
+int min(int a, int b) {
+  if (a < b) {
+    return a;
+  }
+  return b;
+}

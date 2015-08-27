@@ -23,11 +23,12 @@
 #define ICMP_DATA 32116209
 
 struct delay {
-  int avg_delay;
+  double avg_delay;
   int nr_of_measurements;
   int sum_of_delays;
-  int last_measurements[10];
+  long long last_measurements[10];
   int next_index;
+  long long time_in_usec_before_send;
 };
 
 struct peer {
