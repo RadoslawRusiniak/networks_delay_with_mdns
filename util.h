@@ -12,9 +12,9 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-
 #include <ifaddrs.h>
 #include <net/if.h>
+#include <sys/time.h>
 
 #include "err.h"
 
@@ -29,6 +29,8 @@ char * read_name_from_packet(char * read_pointer, int * count);
 unsigned short in_cksum(unsigned short *addr, int len);
 
 int min(int a, int b);
+
+uint64_t get_time_in_microseconds();
 
 #endif	/* UTIL_H */
 

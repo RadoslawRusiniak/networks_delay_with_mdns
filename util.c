@@ -102,3 +102,10 @@ int min(int a, int b) {
   }
   return b;
 }
+
+uint64_t get_time_in_microseconds()
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+	return tv.tv_sec * 1e6 + tv.tv_usec;
+}

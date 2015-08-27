@@ -25,9 +25,8 @@
 struct delay {
   double avg_delay;
   int nr_of_measurements;
-  int sum_of_delays;
   long long last_measurements[10];
-  int next_index;
+  long long sum_of_delays;
   long long time_in_usec_before_send;
 };
 
@@ -37,7 +36,13 @@ struct peer {
   struct delay icmp_delay;
   struct delay udp_delay;
   struct delay tcp_delay;
+  u_int16_t last_icmp_seq;
 };
+
+struct udp_tcp_pack {
+  uint64_t start;
+  uint64_t end;
+} __attribute__((packed));
 
 struct peer peers[100];
 
