@@ -55,7 +55,8 @@ void handle_A_query(struct event_base *base, struct QUERY * question) {
   }
   char hostname[256];
   gethostname(hostname, 256);
-  if (strstr(question->name, hostname) == NULL) {
+  if (strstr(question->name, hostname) == NULL 
+          || strlen(question->name) != strlen(hostname) + 1 + strlen(MDNS_SERVICE)) {
     fprintf(stderr, "Query for other host, skipping.");
     return;
   }
