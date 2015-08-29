@@ -166,7 +166,7 @@ struct event * create_udp_send_query_event(struct event_base * base,
 }
 
 struct event * create_udp_recv_query_event(struct event_base * base, evutil_socket_t sock) {
-  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, recv_udp_reply, NULL);
+  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, recv_udp_request_or_reply, NULL);
   if (!event) {
     syserr("Error creating recv udp query event");
   }

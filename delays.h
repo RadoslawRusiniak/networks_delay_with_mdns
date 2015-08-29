@@ -54,7 +54,7 @@ void recv_icmp_reply(evutil_socket_t sock, short events, void * arg);
 
 void send_udp_requests(evutil_socket_t sock, short events, void * arg);
 
-void recv_udp_reply(evutil_socket_t sock, short events, void * arg);
+void recv_udp_request_or_reply(evutil_socket_t sock, short events, void * arg);
 
 #endif	/* DELAYS_H */
 

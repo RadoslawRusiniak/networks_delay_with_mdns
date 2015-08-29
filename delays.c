@@ -143,9 +143,9 @@ void calculate_icmp_delay_for_addr(struct in_addr addr) {
 }
 
 void send_udp_requests(evutil_socket_t sock, short events, void * arg) {
-  
+
 }
 
-void recv_udp_reply(evutil_socket_t sock, short event, void * arg) {
+void recv_udp_request_or_reply(evutil_socket_t sock, short event, void * arg) {
   
 }
