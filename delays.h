@@ -48,10 +48,13 @@ struct peer peers[100];
 
 void handle_incoming_address(char * hostname, struct in_addr addr);
 
-void send_ping_requests(evutil_socket_t sock, short events, void * arg);
+void send_icmp_requests(evutil_socket_t sock, short events, void * arg);
 
-void receive_ping_reply(evutil_socket_t sock, short events, void * arg);
+void recv_icmp_reply(evutil_socket_t sock, short events, void * arg);
 
+void send_udp_requests(evutil_socket_t sock, short events, void * arg);
+
+void recv_udp_reply(evutil_socket_t sock, short events, void * arg);
 
 #endif	/* DELAYS_H */
 

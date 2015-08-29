@@ -116,7 +116,7 @@ struct event * create_icmp_send_event(struct event_base * base,
   time.tv_usec = 0;
   
   struct event *icmp_event =
-          event_new(base, sock, EV_PERSIST, send_ping_requests, NULL);
+          event_new(base, sock, EV_PERSIST, send_icmp_requests, NULL);
   if (!icmp_event) {
     syserr("Creating timer event.");
   }
@@ -128,14 +128,51 @@ struct event * create_icmp_send_event(struct event_base * base,
 
 struct event * create_icmp_recv_event(struct event_base *base, evutil_socket_t sock)
 {    
-  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, receive_ping_reply, NULL);
+  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, recv_icmp_reply, NULL);
   if (!event) {
     syserr("Error creating recv icmp event");
   }
   if (event_add(event, NULL) == EXIT_FAILURE) {
     syserr("Error adding recv icmp event to a base.");
   }
+  return event;
+}
 
+evutil_socket_t create_udp_socket(struct event_base * base) {
+  evutil_socket_t sock = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sock == -1 ||
+          evutil_make_listen_socket_reuseable(sock) ||
+          evutil_make_socket_nonblocking(sock)) {
+      syserr("Error preparing udp write socket.");
+  }
+  return sock;
+}
+
+struct event * create_udp_send_query_event(struct event_base * base, 
+        evutil_socket_t sock, int queries_interval) {
+  
+  struct timeval time;
+  time.tv_sec = queries_interval;
+  time.tv_usec = 0;
+  struct event *udp_event =
+          event_new(base, sock, EV_PERSIST, send_udp_requests, NULL);
+  if (!udp_event) {
+    syserr("Creating timer event.");
+  }
+  if (evtimer_add(udp_event, &time)) {
+    syserr("Adding timer event to base.");
+  }
+  return udp_event;
+}
+
+struct event * create_udp_recv_query_event(struct event_base * base, evutil_socket_t sock) {
+  struct event *event = event_new(base, sock, EV_READ|EV_PERSIST, recv_udp_reply, NULL);
+  if (!event) {
+    syserr("Error creating recv udp query event");
+  }
+  if (event_add(event, NULL) == EXIT_FAILURE) {
+    syserr("Error adding recv udp query event to a base.");
+  }
   return event;
 }
 
@@ -148,5 +185,8 @@ void close_sockets() {
   }
   if (close(icmp_sock) == - 1) {
     syserr("close icmp_sock");
+  }
+  if (close(udp_sock) == - 1) {
+    syserr("close udp_sock");
   }
 }

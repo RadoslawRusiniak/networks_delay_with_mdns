@@ -221,18 +221,18 @@ void send_mdns_answer(evutil_socket_t sock, char * qname_arg, char * rdata_arg, 
   
   frame_len += strlen(qname_arr) + 1;
   
-  struct RES_RECORD *answer = (struct RES_RECORD *) &buf[frame_len];
-  answer->resource = (struct R_DATA *) &buf[frame_len];
-  answer->resource->rtype = htons(rtype_arg);
-  answer->resource->rclass = htons(1);
-  answer->resource->ttl = htonl(120);
+  //struct RES_RECORD * answer = (struct RES_RECORD *) &buf[frame_len];
+  struct R_DATA * ans_info = (struct R_DATA *) &buf[frame_len];
+  ans_info->rtype = htons(rtype_arg);
+  ans_info->rclass = htons(1);
+  ans_info->ttl = htonl(120);
   uint16_t resource_data_len;
   if (rtype_arg == T_PTR) {
     resource_data_len = strlen(rdata_arg) + 1;
   } else if (rtype_arg == T_A) {
     resource_data_len = strlen(rdata_arg);
   }
-  answer->resource->data_len = htons(resource_data_len);
+  ans_info->data_len = htons(resource_data_len);
   
   frame_len += sizeof (struct R_DATA);
   

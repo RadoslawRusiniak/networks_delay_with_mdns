@@ -29,7 +29,7 @@ void handle_incoming_address(char * host, struct in_addr addr) {
 void send_ping_request(evutil_socket_t sock, struct in_addr addr, long long * time_before_send);
 void calculate_icmp_delay_for_addr(struct in_addr addr);
 
-void send_ping_requests(evutil_socket_t sock, short events, void * arg) {
+void send_icmp_requests(evutil_socket_t sock, short events, void * arg) {
   int i;
   for (i = 0; i < nr_of_peers; ++i) {
     fprintf(stderr, "Sending ping request to %d-th peer\n", i + 1);
@@ -71,7 +71,7 @@ void send_ping_request(evutil_socket_t sock, struct in_addr addr, long long * ti
   fprintf(stderr, " Wrote %zd bytes\n", len);
 }
 
-void receive_ping_reply(evutil_socket_t sock, short event, void * arg) {
+void recv_icmp_reply(evutil_socket_t sock, short event, void * arg) {
   struct sockaddr_in rcv_addr;
   socklen_t rcv_addr_len;
   struct ip* ip;
@@ -142,4 +142,10 @@ void calculate_icmp_delay_for_addr(struct in_addr addr) {
   }
 }
 
+void send_udp_requests(evutil_socket_t sock, short events, void * arg) {
+  
+}
 
+void recv_udp_reply(evutil_socket_t sock, short event, void * arg) {
+  
+}

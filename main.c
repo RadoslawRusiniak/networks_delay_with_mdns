@@ -42,6 +42,11 @@ int main(int argc, char *argv[])
   struct event * icmp_send_event = create_icmp_send_event(base, icmp_sock, DELAYS_MEASUREMENT_INTERVAL);
   struct event * icmp_recv_event = create_icmp_recv_event(base, icmp_sock);
   
+  udp_sock = create_udp_socket(base);
+  assert(udp_sock);
+  struct event * udp_send_event = create_udp_send_query_event(base, udp_sock, DELAYS_MEASUREMENT_INTERVAL);
+//  struct event * udp_recv_event = create_udp_recv_event(base, udp_sock);
+  
   fprintf(stderr, "Instance data:\n");
   struct sockaddr_in addr = get_ip_address();
   char hostname[256];
@@ -57,6 +62,8 @@ int main(int argc, char *argv[])
   event_free(write_mcast_event);
   event_free(icmp_send_event);
   event_free(icmp_recv_event);
+  event_free(udp_send_event);
+//  event_free(udp_recv_event);
   event_base_free(base);
   close_sockets();
   

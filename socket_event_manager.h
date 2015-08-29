@@ -25,6 +25,7 @@
 evutil_socket_t read_MDNS_sock;
 evutil_socket_t write_MDNS_sock;
 evutil_socket_t icmp_sock;
+evutil_socket_t udp_sock;
 
 evutil_socket_t create_write_mcast_socket(struct event_base * base);
 
@@ -41,6 +42,14 @@ struct event * create_icmp_send_event(struct event_base * base,
         evutil_socket_t sock, int queries_interval);
 
 struct event * create_icmp_recv_event(struct event_base * base, evutil_socket_t sock);
+
+evutil_socket_t create_udp_socket(struct event_base * base);
+
+struct event * create_udp_send_query_event(struct event_base * base, 
+        evutil_socket_t sock, int queries_interval);
+
+struct event * create_udp_recv_query_event(struct event_base * base, evutil_socket_t sock);
+
 
 void close_sockets();
 
